@@ -8,7 +8,7 @@ def get_stations() -> tuple[list,dict]:
         stations = csv.DictReader(stationsFile)
         for station in stations:
             stations_code_list.append(station["code"]) 
-            stations_name_dict[station["code"]] = station["name"]
+            stations_name_dict[station["name"]] = station["code"]
     return stations_code_list, stations_name_dict
 
 
