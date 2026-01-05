@@ -3,15 +3,20 @@ import network
 import routes
 
 def main():
+    # Read the excel files
     timetable = openpyxl.load_workbook("../database/timetable/CB02.xlsx")
     timetable_monday_fw = timetable["Mondays to Fridays Forward"]
-    timetable_monday_reverse = timetable["Mondays to Fridays Reverse"]
+    # Left out for the moment. First goal is to work with just one sheet of the excel file.
+    # timetable_monday_reverse = timetable["Mondays to Fridays Reverse"]
+    extract_routes_and_times(timetable_file=timetable_monday_fw)
+
+def extract_routes_and_times(timetable_file):
     _,station_codes = network.get_stations()
     keys_with_problem = []
     list_station_code = []
     routes_dict = {}
     # Origin loop
-    for col in timetable_monday_fw.iter_cols(1, timetable_monday_fw.max_column):
+    for col in timetable_file.iter_cols(1, timetable_file.max_column):
         for row in range(2,4):
             if row == 2:
                 origin = col[row].value
@@ -46,8 +51,8 @@ def main():
                 if station_code not in list_station_code:
                     list_station_code.append(station_code)
             else:
-                if origin_station not in keys_with_problem:
-                    keys_with_problem.append(origin_station)
+                if desintation_station not in keys_with_problem:
+                    keys_with_problem.append(desintation_station)
 
             if origin_station_code != None and desintation_station_code != None:
                 dict_key = origin_station_code + "_" + desintation_station_code
@@ -58,8 +63,6 @@ def main():
 
     print(list_station_code)
     print(keys_with_problem)
-    for route in routes_dict.values():
-        print(route)
     return routes_dict
 
 # def match_routes():
@@ -183,6 +186,5 @@ def old_match_routes():
             # if count > 2:
             #     print(routes_matched)
             #     print(f"Timetable route from {route_start} to {route_end} matches {count} dataset routes.")
-    print(f"Total timetable routes matching EUS to BHM: {timetable_count}")
 
 main()
