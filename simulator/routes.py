@@ -20,8 +20,9 @@ def get_all_routes():
     routes = extract_unique_routes()
     sum = 0
     for route in routes.values():
-        route["count"] = route["count"] / 3 
+        route["count"] = int(route["count"] / 3)
         if route["count"] == 0: 
             route["count"] = 1
         sum += route["count"]
     print(sum/len(routes))
+    return routes

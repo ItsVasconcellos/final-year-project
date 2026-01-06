@@ -8,14 +8,15 @@ def main():
     timetable_monday_fw = timetable["Mondays to Fridays Forward"]
     # Left out for the moment. First goal is to work with just one sheet of the excel file.
     # timetable_monday_reverse = timetable["Mondays to Fridays Reverse"]
-    extract_routes_and_times(timetable_file=timetable_monday_fw)
+    routes_dict = {}
+    routes_dict = extract_routes_and_times(timetable_file=timetable_monday_fw, routes_dict=routes_dict)
+    return match_routes(routes_dict)
 
-def extract_routes_and_times(timetable_file):
+def extract_routes_and_times(timetable_file, routes_dict) -> dict:
     _,station_codes = network.get_stations()
     keys_with_problem = []
     list_station_code = []
-    routes_dict = {}
-    # Origin loop
+    # Iterate through excel file and get the origin and destination, alongside time.
     for col in timetable_file.iter_cols(1, timetable_file.max_column):
         for row in range(2,4):
             if row == 2:
@@ -34,25 +35,30 @@ def extract_routes_and_times(timetable_file):
             origin_station_code = None
             desintation_station_code = None
             
-            ## THis is temporary and just to verify the precision of the station code and if its failing or not. It will be fixed.
-            if station_codes.get(origin_station):
-                station_code = station_codes[origin_station]
-                origin_station_code = station_code
-                if station_code not in list_station_code:
-                    list_station_code.append(station_code)
-            else:
-                if origin_station not in keys_with_problem:
-                    keys_with_problem.append(origin_station)
+            if station_codes.get(origin_station) and station_codes.get(desintation_station):
+                origin_station_code = station_codes[origin_station]
+                desintation_station_code = station_codes[desintation_station]
+            
+            ## This is temporary and just to verify the precision of the station code and if its failing or not. 
+            # Since there are a lot of excel files and the names don't exactly match it will help sort bugs.
+            # if station_codes.get(origin_station):
+            #     station_code = station_codes[origin_station]
+            #     origin_station_code = station_code
+            #     if station_code not in list_station_code:
+            #         list_station_code.append(station_code)
+            # else:
+            #     if origin_station not in keys_with_problem:
+            #         keys_with_problem.append(origin_station)
 
 
-            if station_codes.get(desintation_station):
-                station_code = station_codes[desintation_station]
-                desintation_station_code = station_code
-                if station_code not in list_station_code:
-                    list_station_code.append(station_code)
-            else:
-                if desintation_station not in keys_with_problem:
-                    keys_with_problem.append(desintation_station)
+            # if station_codes.get(desintation_station):
+            #     station_code = station_codes[desintation_station]
+            #     desintation_station_code = station_code
+            #     if station_code not in list_station_code:
+            #         list_station_code.append(station_code)
+            # else:
+            #     if desintation_station not in keys_with_problem:
+            #         keys_with_problem.append(desintation_station)
 
             if origin_station_code != None and desintation_station_code != None:
                 dict_key = origin_station_code + "_" + desintation_station_code
@@ -61,43 +67,56 @@ def extract_routes_and_times(timetable_file):
                     continue
                 routes_dict[dict_key] = {"path": [origin_station_code,desintation_station_code], "time": [[time_departure, time_arrival]] }
 
-    print(list_station_code)
-    print(keys_with_problem)
+    # print(list_station_code)
+    # print(keys_with_problem)
     return routes_dict
 
-# def match_routes():
-#     all_routes = routes.get_routes()
-#     timetable_routes = main()
-#     timetable_count = 0
-#     for route in all_routes.values():
-#         # print(route)
-#         if len(route["path"]) >= 2:
-#             route_start = route["path"][0]
-#             route_end = route["path"][-1]
-#             count = 0
-#             for col, stations in timetable_routes.items():
-#                 if len(stations) >= 2 and stations[0] == route_start and stations[1] == route_end:
-#                     # print(f"Match found: Route {route} matches timetable column {col}")
-#                     count += 1
-            
+def match_routes(timetable_routes) -> list[dict]:
+    all_routes = routes.get_all_routes()
+    timetable = []
+    for timetable_item in timetable_routes.values():
+        matched_routes = []
+        path = timetable_item["path"]
+        time = timetable_item["time"]
+        # Verify if there is not a broken path
+        if len(path) < 2 or len(time) < 1:
+            continue
+
+        for route in all_routes.values():
+            # just verify if the route is existent and have a start and a end
+            if len(route["path"]) <= 2:
+                continue
+            route_start = route["path"][0]
+            route_end = route["path"][-1]
+            if route_start == path[0] and route_end == path[1]:
+                matched_routes.append(route)
+        
+        # If no matched route, just go for the next timetable
+        if len(matched_routes) < 1:
+            continue
+
+        print(len(time))
+        print(matched_routes)
+
+    return timetable
     
-#     for route in timetable_routes.values():
-#         if len(route) >= 2:
-#             route_start = route[0]
-#             route_end = route[1]
-#             if route_start == "EUS" and route_end == "BHM":
-#                 timetable_count += 1    
-#             count = 0
-#             routes_matched = []
-#             for r in all_routes.values():
-#                 if len(r["path"]) >= 2 and r["path"][0] == route_start and r["path"][-1] == route_end:
-#                     # print(f"Match found: Timetable route {route} matches dataset route {r['path']}")
-#                     count += 1
-#                     routes_matched.append(r["count"])
-#             # if count > 2:
-#             #     print(routes_matched)
-#             #     print(f"Timetable route from {route_start} to {route_end} matches {count} dataset routes.")
-#     print(f"Total timetable routes matching EUS to BHM: {timetable_count}")
+    # for route in timetable_routes.values():
+    #     if len(route) >= 2:
+    #         route_start = route[0]
+    #         route_end = route[1]
+    #         if route_start == "EUS" and route_end == "BHM":
+    #             timetable_count += 1    
+    #         count = 0
+    #         routes_matched = []
+    #         for r in all_routes.values():
+    #             if len(r["path"]) >= 2 and r["path"][0] == route_start and r["path"][-1] == route_end:
+    #                 # print(f"Match found: Timetable route {route} matches dataset route {r['path']}")
+    #                 count += 1
+    #                 routes_matched.append(r["count"])
+    #         # if count > 2:
+    #         #     print(routes_matched)
+    #         #     print(f"Timetable route from {route_start} to {route_end} matches {count} dataset routes.")
+    # print(f"Total timetable routes matching EUS to BHM: {timetable_count}")
 
 def old_main():
     timetable = openpyxl.load_workbook("../database/timetable/CB02.xlsx")
@@ -187,4 +206,5 @@ def old_match_routes():
             #     print(routes_matched)
             #     print(f"Timetable route from {route_start} to {route_end} matches {count} dataset routes.")
 
-main()
+if __name__ == "__main__":
+    main()
