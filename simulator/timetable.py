@@ -78,6 +78,8 @@ def match_routes(timetable_routes) -> list[dict]:
         matched_routes = []
         path = timetable_item["path"]
         time = timetable_item["time"]
+        total_travels_timetable = len(time)
+        path_total_travles = 0
         # Verify if there is not a broken path
         if len(path) < 2 or len(time) < 1:
             continue
@@ -90,12 +92,47 @@ def match_routes(timetable_routes) -> list[dict]:
             route_end = route["path"][-1]
             if route_start == path[0] and route_end == path[1]:
                 matched_routes.append(route)
+                path_total_travles += route["count"] 
         
         # If no matched route, just go for the next timetable
         if len(matched_routes) < 1:
             continue
 
-        print(len(time))
+        # What needs to happen next:
+        # I need to find the actual amount of time that each path will recieve, so 
+        values_to_distribute = total_travels_timetable - len(matched_routes)
+
+        distribution_ratio = values_to_distribute/path_total_travles
+
+        for match in matched_routes:
+            match["total_travel"] = int(match["count"] * distribution_ratio) + 1
+        
+        item = 0
+        for t in time:
+            next_match = matched_routes[item]
+            if next_match["total_travel"] <= 0:
+                found = False
+                while found:
+                    item += 1
+                    if item >= len(matched_routes) - 1: 
+                        item = 0
+                    next_match = matched_routes[item]
+                    if next_match["total_travel"] > 0:
+                        found = True
+            
+            if next_match.get("time"):
+                next_match["time"].append(t)
+                next_match["total_travel"] -= 1
+            else:
+                next_match["time"] = [t]
+                next_match["total_travel"] -= 1
+            
+            if item + 1 >= len(matched_routes):
+                item = 0
+                continue
+            item +=1
+            
+        # print(len(time))
         print(matched_routes)
 
     return timetable
