@@ -1,6 +1,6 @@
 import csv
 
-def get_routes():
+def extract_unique_routes():
     unique_routes = {}
     with open(file="../database/routes.tsv", mode='r') as routesFile:
         count = 0
@@ -16,8 +16,8 @@ def get_routes():
     return unique_routes
 
 #TODO change the function name to something more adequate hahah 
-def process_routes_to_1_day():
-    routes = get_routes()
+def get_all_routes():
+    routes = extract_unique_routes()
     sum = 0
     for route in routes.values():
         route["count"] = route["count"] / 3 
