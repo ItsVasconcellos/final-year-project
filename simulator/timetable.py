@@ -7,19 +7,18 @@ def main():
     timetable = openpyxl.load_workbook("../database/timetable/CB02.xlsx")
     timetable_monday_fw = timetable["Mondays to Fridays Forward"]
     # Left out for the moment. First goal is to work with just one sheet of the excel file.
-    # timetable_monday_reverse = timetable["Mondays to Fridays Reverse"]
+    timetable_monday_reverse = timetable["Mondays to Fridays Reverse"]
+    
     routes_dict = {}
     routes_dict = extract_routes_and_times(timetable_file=timetable_monday_fw, routes_dict=routes_dict)
-   # Test
-    # routes_dict = extract_routes_and_times(timetable_file=timetable_monday_reverse, routes_dict=routes_dict)
-    # for i in routes_dict.values():
-    #     print(i["path"])
+    routes_dict = extract_routes_and_times(timetable_file=timetable_monday_reverse, routes_dict=routes_dict)
+    
     return match_routes(routes_dict)
 
 def extract_routes_and_times(timetable_file, routes_dict) -> dict:
     _,station_codes = network.get_stations()
-    keys_with_problem = []
-    list_station_code = []
+    # keys_with_problem = []
+    # list_station_code = []
     # Iterate through excel file and get the origin and destination, alongside time.
     for col in timetable_file.iter_cols(1, timetable_file.max_column):
         for row in range(2,4):
@@ -102,12 +101,7 @@ def match_routes(timetable_routes) -> list[dict]:
         if len(matched_routes) < 1:
             continue
 
-        # Lixo 
-
-        # What needs to happen next:
-        # I need to find the actual amount of time that each path will recieve, so 
         values_to_distribute = total_travels_timetable - len(matched_routes)
-        print(values_to_distribute)
         if values_to_distribute > 0:
             distribution_ratio = values_to_distribute/path_total_travles
             actual_total_travels  = 0
@@ -137,8 +131,6 @@ def match_routes(timetable_routes) -> list[dict]:
         item = 0
         for i, t in enumerate(time):
             next_match = matched_routes[item]
-            # print("\n")
-            # print(next_match)
             if next_match["total_travel"] <= 0:
                 found = False
                 while not found:
@@ -163,7 +155,6 @@ def match_routes(timetable_routes) -> list[dict]:
     for item in timetable:
         print("\n Total travel time:" + str(item["backup_total_travel"]))
         print("Total len of time:" + str(len(item["time"])))
-        # print(item["time"])
     return timetable
     
     # for route in timetable_routes.values():
