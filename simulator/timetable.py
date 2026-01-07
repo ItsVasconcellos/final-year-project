@@ -10,6 +10,10 @@ def main():
     # timetable_monday_reverse = timetable["Mondays to Fridays Reverse"]
     routes_dict = {}
     routes_dict = extract_routes_and_times(timetable_file=timetable_monday_fw, routes_dict=routes_dict)
+   # Test
+    # routes_dict = extract_routes_and_times(timetable_file=timetable_monday_reverse, routes_dict=routes_dict)
+    # for i in routes_dict.values():
+    #     print(i["path"])
     return match_routes(routes_dict)
 
 def extract_routes_and_times(timetable_file, routes_dict) -> dict:
@@ -74,7 +78,7 @@ def extract_routes_and_times(timetable_file, routes_dict) -> dict:
 def match_routes(timetable_routes) -> list[dict]:
     all_routes = routes.get_all_routes()
     timetable = []
-    for timetable_item in timetable_routes.values():
+    for i, timetable_item in enumerate(timetable_routes.values()):
         matched_routes = []
         path = timetable_item["path"]
         time = timetable_item["time"]
@@ -98,43 +102,68 @@ def match_routes(timetable_routes) -> list[dict]:
         if len(matched_routes) < 1:
             continue
 
+        # Lixo 
+
         # What needs to happen next:
         # I need to find the actual amount of time that each path will recieve, so 
         values_to_distribute = total_travels_timetable - len(matched_routes)
+        print(values_to_distribute)
+        if values_to_distribute > 0:
+            distribution_ratio = values_to_distribute/path_total_travles
+            actual_total_travels  = 0
+            for match in matched_routes:
+                travel_amount =  int(match["count"] * distribution_ratio) + 1
+                match["total_travel"] = travel_amount
+                match["backup_total_travel"] = travel_amount
+                actual_total_travels += travel_amount
 
-        distribution_ratio = values_to_distribute/path_total_travles
+            margin_error = total_travels_timetable - actual_total_travels
+            if margin_error > 0: 
+                for i in range(0, margin_error):
+                    matched_routes[i]["total_travel"] += 1
+                    # print("total travel: " + str(matched_routes[i]["total_travel"]))
+                    matched_routes[i]["backup_total_travel"] += 1
+            elif margin_error < 0: 
+                for i in range(0, margin_error):
+                    matched_routes[i]["total_travel"] -= 1
 
-        for match in matched_routes:
-            match["total_travel"] = int(match["count"] * distribution_ratio) + 1
-        
+        else:
+            for i, match in enumerate(matched_routes):
+                if i < total_travels_timetable:
+                    match["total_travel"] = 1 
+                    match["backup_total_travel"] = 1 
+            matched_routes = matched_routes[:total_travels_timetable]
+
         item = 0
-        for t in time:
+        for i, t in enumerate(time):
             next_match = matched_routes[item]
+            # print("\n")
+            # print(next_match)
             if next_match["total_travel"] <= 0:
                 found = False
-                while found:
+                while not found:
                     item += 1
-                    if item >= len(matched_routes) - 1: 
+                    if item >= len(matched_routes): 
                         item = 0
                     next_match = matched_routes[item]
                     if next_match["total_travel"] > 0:
                         found = True
-            
             if next_match.get("time"):
                 next_match["time"].append(t)
                 next_match["total_travel"] -= 1
             else:
                 next_match["time"] = [t]
                 next_match["total_travel"] -= 1
-            
             if item + 1 >= len(matched_routes):
                 item = 0
                 continue
             item +=1
-            
-        # print(len(time))
-        print(matched_routes)
-
+        
+        timetable.extend(matched_routes)
+    for item in timetable:
+        print("\n Total travel time:" + str(item["backup_total_travel"]))
+        print("Total len of time:" + str(len(item["time"])))
+        # print(item["time"])
     return timetable
     
     # for route in timetable_routes.values():
