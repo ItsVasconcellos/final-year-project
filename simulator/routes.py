@@ -12,7 +12,7 @@ def extract_unique_routes():
                 continue
             unique_routes[key] = {"count":1, "path": route}
             count+=1
-        print(count)
+        print("Unique routes:" + str(count))
     return unique_routes
 
 #TODO change the function name to something more adequate hahah 
@@ -24,5 +24,6 @@ def get_all_routes():
         if route["count"] == 0: 
             route["count"] = 1
         sum += route["count"]
-    print(sum/len(routes))
+    # Average route usage per day
+    # print(sum/len(routes))
     return routes
