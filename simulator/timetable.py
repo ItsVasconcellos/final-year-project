@@ -115,17 +115,16 @@ def match_routes(timetable_routes) -> list[dict]:
             if margin_error > 0: 
                 for i in range(0, margin_error):
                     matched_routes[i]["total_travel"] += 1
-                    # print("total travel: " + str(matched_routes[i]["total_travel"]))
-                    matched_routes[i]["backup_total_travel"] += 1
+                    # matched_routes[i]["backup_total_travel"] += 1
             elif margin_error < 0: 
                 for i in range(0, margin_error):
                     matched_routes[i]["total_travel"] -= 1
-
+                    # matched_routes[i]["backup_total_travel"] -= 1
         else:
             for i, match in enumerate(matched_routes):
                 if i < total_travels_timetable:
                     match["total_travel"] = 1 
-                    match["backup_total_travel"] = 1 
+                    # match["backup_total_travel"] = 1 
             matched_routes = matched_routes[:total_travels_timetable]
 
         item = 0
@@ -152,9 +151,9 @@ def match_routes(timetable_routes) -> list[dict]:
             item +=1
         
         timetable.extend(matched_routes)
-    for item in timetable:
-        print("\n Total travel time:" + str(item["backup_total_travel"]))
-        print("Total len of time:" + str(len(item["time"])))
+    # for item in timetable:
+    #     print("\n Total travel time:" + str(item["backup_total_travel"]))
+    #     print("Total len of time:" + str(len(item["time"])))
     return timetable
     
     # for route in timetable_routes.values():

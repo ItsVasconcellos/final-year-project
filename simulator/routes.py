@@ -15,15 +15,18 @@ def extract_unique_routes():
         print("Unique routes:" + str(count))
     return unique_routes
 
-#TODO change the function name to something more adequate hahah 
 def get_all_routes():
+    """
+    This function returns all the routes available, using extract_unique_routes and normalize the count.
+    This is necessary since the routes are on a 3 day frequency.
+    """
     routes = extract_unique_routes()
-    sum = 0
+    # sum = 0
     for route in routes.values():
         route["count"] = int(route["count"] / 3)
         if route["count"] == 0: 
             route["count"] = 1
-        sum += route["count"]
+        # sum += route["count"]
     # Average route usage per day
     # print(sum/len(routes))
     return routes
