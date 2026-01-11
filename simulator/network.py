@@ -11,6 +11,13 @@ def get_stations() -> tuple[list,dict]:
             stations_name_dict[station["name"]] = station["code"]
     return stations_code_list, stations_name_dict
 
+def get_station_with_latitude() -> dict:
+    stations_name_dict = {}
+    with open(file="../database/stations.csv", mode='r') as stationsFile:
+        stations = csv.DictReader(stationsFile)
+        for station in stations:
+            stations_name_dict[station["code"]] = [[station["lat"], station["long"]], station["name"] ] 
+    return stations_name_dict
 
 def get_edges() -> list:
     edges_list = []

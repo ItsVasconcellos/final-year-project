@@ -1,0 +1,67 @@
+import hypernetx as hnx
+import network as nt
+import routes as rt
+import plotly.graph_objects as go
+import pandas as pd
+
+def main():
+    stations = nt.get_station_with_latitude()
+    routes = rt.get_all_routes()
+    routes_list = []
+    for route in routes.values():
+        routes_list.append(route["path"])
+    hypergraph = hnx.Hypergraph(routes_list)
+    node_list = hypergraph.nodes
+    centrality = hnx.algorithms.s_betweenness_centrality(hypergraph, edges=False)
+    # --- Step 1: Extract data into flat Python lists ---
+    lats = []
+    lons = []
+    names = []
+    scores = []
+    
+    print(centrality.sort()[:10])
+
+    for station_code, score in centrality.items():
+        if station_code in stations:
+            coords, name = stations[station_code]
+            lats.append(coords[0])
+            lons.append(coords[1])
+            names.append(name)
+            # Scaling: Multiply score by a factor (e.g., 50) so dots are visible
+            scores.append(score * 50 + 5) 
+
+    # --- Step 2: Create the plot using Graph Objects ---
+    fig = go.Figure(go.Scattermap(
+        lat=lats,
+        lon=lons,
+        mode='markers',
+        marker=go.scattermap.Marker(
+            size=scores,
+            color=scores, # Optional: color dots by score
+            colorscale='Viridis',
+            showscale=True
+        ),
+        text=names,
+        hoverinfo='text'
+    ))
+
+    # --- Step 3: Configure Layout ---
+    fig.update_layout(
+        height=1600,
+        width=2000,
+        map_style="open-street-map",
+        map=dict(
+            center=dict(lat=54.5057, lon=-1.7274),
+            zoom=5
+        ),
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
+
+    # --- Step 4: Save the image instead of showing ---
+    print("Saving map to station_centrality.png...")
+    fig.write_image("station_centrality.png", scale=3) # scale=2 improves resolution
+    print("Done!")
+
+
+if __name__ == "__main__":
+    main()
