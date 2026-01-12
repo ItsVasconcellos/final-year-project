@@ -1,22 +1,5 @@
 import network
-import routes
-
-# def avg_value():
-#     sum = 0
-#     for route in unique_routes.items():
-#         sum = sum + route[1]
-#     avg = sum/len(unique_routes)
-#     print(avg)
-
-# def max_value():
-#     station = ""
-#     maximum = 0
-#     for route in unique_routes.items():    
-#         if route[1] >= int(maximum):
-#             station = route[0]
-#             maximum = route[1]
-#     print(station)
-#     print(maximum)
+import timetable as tt
 
 def create_time_table(routes):
     """
@@ -32,8 +15,8 @@ def create_time_table(routes):
 
 def main():
     railway_network = network.create_graph()
-    print(railway_network)
-    route = routes.process_routes_to_1_day()
+    timetable = tt.main()
+
 
 
 if __name__ == "__main__":

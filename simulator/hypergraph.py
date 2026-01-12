@@ -6,6 +6,7 @@ import pandas as pd
 
 def main():
     stations = nt.get_station_with_latitude()
+    stations_name_dict = nt.station_code_to_name()
     routes = rt.get_all_routes()
     routes_list = []
     for route in routes.values():
@@ -18,9 +19,13 @@ def main():
     lons = []
     names = []
     scores = []
-    
-    print(centrality.sort()[:10])
-
+    sorted_centrality = sorted(centrality.items(),key=lambda item:item[1],reverse=True)
+    top_10 = sorted_centrality[:10]
+    top_10_with_names = []
+    for item in top_10:
+        station_name = stations_name_dict.get(item[0])
+        top_10_with_names.append([station_name,item[1]])
+    print(top_10_with_names)
     for station_code, score in centrality.items():
         if station_code in stations:
             coords, name = stations[station_code]
@@ -37,7 +42,6 @@ def main():
         mode='markers',
         marker=go.scattermap.Marker(
             size=scores,
-            color=scores, # Optional: color dots by score
             colorscale='Viridis',
             showscale=True
         ),
@@ -52,7 +56,7 @@ def main():
         map_style="open-street-map",
         map=dict(
             center=dict(lat=54.5057, lon=-1.7274),
-            zoom=5
+            zoom=6
         ),
         margin={"r":0,"t":0,"l":0,"b":0}
     )
