@@ -1,6 +1,7 @@
 import openpyxl
 import network
 import routes
+from datetime import datetime, timedelta
 
 def main():
     # Read the excel files
@@ -12,7 +13,7 @@ def main():
     routes_dict = {}
     routes_dict = extract_routes_and_times(timetable_file=timetable_monday_fw, routes_dict=routes_dict)
     routes_dict = extract_routes_and_times(timetable_file=timetable_monday_reverse, routes_dict=routes_dict)
-    
+    routes_dict = calculate_deltas(routes_dict)
     return match_routes(routes_dict)
 
 def extract_routes_and_times(timetable_file, routes_dict) -> dict:
@@ -73,6 +74,33 @@ def extract_routes_and_times(timetable_file, routes_dict) -> dict:
     # print(list_station_code)
     # print(keys_with_problem)
     return routes_dict
+
+def time_diff(start, end):
+    fmt = "%H:%M"
+    start_dt = datetime.strptime(start, fmt)
+    end_dt = datetime.strptime(end, fmt)
+
+    # if end time is earlier, it means next day
+    if end_dt <= start_dt:
+        end_dt += timedelta(days=1)
+
+    return end_dt - start_dt
+
+def calculate_deltas(routes: dict) ->dict:
+    for item in routes.values():
+        time_diff_list = []
+        for time in item["time"]:
+            if '½' in time[0]:
+                time[0] = time[0].replace('½', '')
+            if '½' in time[1]:
+                time[1] = time[1].replace('½', '')
+            dif = time_diff(time[0],time[1]).seconds
+            time_diff_list.append(dif)
+        range_list = (max(time_diff_list) - min(time_diff_list)) / 60
+        print("range:" + str(range_list) + " | list_size: " + str(len(time_diff_list)))
+        # print(time_diff_list)
+        print("\n")
+    return routes
 
 def match_routes(timetable_routes) -> list[dict]:
     all_routes = routes.get_all_routes()
