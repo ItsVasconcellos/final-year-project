@@ -34,8 +34,8 @@ def extract_routes_and_times(timetable_file, routes_dict) -> dict:
         if (len(origin.split("\n")) >= 2) and len(desintation.split("\n")) >= 2:
             origin_station = origin.split("\n")[0].title()
             desintation_station = desintation.split("\n")[0].title()
-            time_departure = origin.split("\n")[1]
-            time_arrival = desintation.split("\n")[1]
+            time_departure = str(origin.split("\n")[1]).replace("½", "")
+            time_arrival = str(desintation.split("\n")[1]).replace("½", "")
             origin_station_code = None
             desintation_station_code = None
             
@@ -90,16 +90,9 @@ def calculate_deltas(routes: dict) ->dict:
     for item in routes.values():
         time_diff_list = []
         for time in item["time"]:
-            if '½' in time[0]:
-                time[0] = time[0].replace('½', '')
-            if '½' in time[1]:
-                time[1] = time[1].replace('½', '')
             dif = time_diff(time[0],time[1]).seconds
             time_diff_list.append(dif)
-        range_list = (max(time_diff_list) - min(time_diff_list)) / 60
-        print("range:" + str(range_list) + " | list_size: " + str(len(time_diff_list)))
-        # print(time_diff_list)
-        print("\n")
+        item["delta_routes"] = time_diff_list
     return routes
 
 def match_routes(timetable_routes) -> list[dict]:
