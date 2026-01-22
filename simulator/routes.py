@@ -41,20 +41,14 @@ def get_all_routes_and_distances():
     """
     stations = ntw.get_edges_weight_dict()
     routes = get_all_routes()
-    problems = []
     for route in routes.values():
         total_route_distance = 0 
         for i in range(0,len(route["path"])-1):
             key = route["path"][i] + "," + route["path"][i+1]
             if stations.get(key):
                 total_route_distance += stations[key]
-            else:
-                problems.append([key,i])
-                print(route["path"])
-                print(key)
         total_route_distance  = round(total_route_distance,2)
-        # print(str(total_route_distance)+ "\n")
-    print(problems)
-    print("Len of problems stations: " + str(len(problems)))
+        route["totalDistance"] = total_route_distance
+    return routes 
 
 get_all_routes_and_distances()
