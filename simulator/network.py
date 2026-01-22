@@ -35,6 +35,16 @@ def get_edges() -> list:
             edges_list.append([edge["source"],edge["target"],{"weight": edge["distance"]}])
     return edges_list
 
+def get_edges_weight_dict() -> dict:
+    edges_dict = {}
+    with open(file="../database/edges.csv", mode='r') as connectionFile:
+        edges = csv.DictReader(connectionFile)
+        for edge in edges:
+            key = edge["source"] + "," + edge["target"]
+            edges_dict[key] = float(edge["distance"])
+    return edges_dict
+
+
 def create_graph() -> DiGraph:
     stations, _ = get_stations()
     edges = get_edges()
