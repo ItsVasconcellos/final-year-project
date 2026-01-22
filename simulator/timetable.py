@@ -3,6 +3,9 @@ import openpyxl
 import network
 import routes
 from datetime import datetime, timedelta
+import json
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 def main():
     # Read the excel files
@@ -15,7 +18,20 @@ def main():
     graph = network.get_railway_graph()
     routes_dict = extract_routes_and_times(timetable_file=timetable_monday_fw, routes_dict=routes_dict)
     routes_dict = extract_routes_and_times(timetable_file=timetable_monday_reverse, routes_dict=routes_dict)
-    return create_timetable(routes_dict, railway_network=graph)
+    timetable, list_of_times = create_timetable(routes_dict, railway_network=graph)
+    save_files(timetable,list_of_times)
+    return 0
+
+def save_files(timetable,list_of_times):
+    schema = pa.schema([
+        ('path', pa.list_(pa.string())),          
+        ('distance', pa.float64()),               
+        ('arrival_times', pa.list_(pa.string())), 
+        ('departure_times', pa.list_(pa.string())),
+        ('first_departure', pa.string())          
+    ])
+    table = pa.Table.from_pylist(timetable,schema)
+    pq.write_table(table,"../database/timetable/myfile.parquet", compression="snappy")
 
 def extract_routes_and_times(timetable_file, routes_dict) -> dict:
     _,station_codes = network.get_stations()
@@ -100,6 +116,7 @@ def time_addition(start, quantity):
 def create_timetable(timetable_routes: dict, railway_network: DiGraph) -> list[dict]:
     all_routes = routes.get_all_routes_and_distances()
     timetable = []
+    time_list_for_timetable = []
     for timetable_item in timetable_routes.values():
         path:list = timetable_item["path"]
         time:list = timetable_item["time"]
@@ -129,26 +146,31 @@ def create_timetable(timetable_routes: dict, railway_network: DiGraph) -> list[d
             start_time = trip[0]
             end_time = trip[1]
             diff = (time_diff(start_time,end_time).seconds)/60
-            # print(time_range)
-            # print(diff)
             index = dict_meu[diff]
             distance = distances_matched[index]
-            # print("Distancia: " + str(distances_matched))
-            # print(distance)
             route = matched_routes[distance]
             path = route["path"]
             arrival_time, departure_time = predict_times(start_time=start_time,total_time_trip=diff, railway_network=railway_network, path=path, distance=distance )
             arrival_time.append(end_time)
             departure_time.append(end_time)
+            for a in arrival_time:
+                if a not in time_list_for_timetable: 
+                    time_list_for_timetable.append(a)
+            for d in departure_time:
+                if d not in  time_list_for_timetable: 
+                    time_list_for_timetable.append(d)
+
             new_object = {
                 "distance": distance,
                 "path": path,
-                "arrival_time": arrival_time,
-                "departure_time": departure_time
+                "arrival_times": arrival_time,
+                "departure_times": departure_time,
+                "first_departure": start_time
             }
             timetable.append(new_object)
-
-    return timetable
+    
+    time_list_for_timetable.sort()
+    return timetable, time_list_for_timetable
     
 def match_routes(routes: dict, path:dict)-> list[list,dict,int]:
     distances_matched = []
