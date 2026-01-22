@@ -13,7 +13,7 @@ def main():
     routes_dict = {}
     routes_dict = extract_routes_and_times(timetable_file=timetable_monday_fw, routes_dict=routes_dict)
     routes_dict = extract_routes_and_times(timetable_file=timetable_monday_reverse, routes_dict=routes_dict)
-    print(match_routes(routes_dict))
+    return create_timetable(routes_dict)
 
 def extract_routes_and_times(timetable_file, routes_dict) -> dict:
     _,station_codes = network.get_stations()
@@ -88,14 +88,10 @@ def time_diff(start, end):
 
     return end_dt - start_dt
 
-def match_routes(timetable_routes) -> list[dict]:
+def create_timetable(timetable_routes) -> list[dict]:
     all_routes = routes.get_all_routes_and_distances()
     timetable = []
-    for i, timetable_item in enumerate(timetable_routes.values()):
-        if i != 43:
-            continue
-        matched_routes = {}
-        distances_matched = []
+    for timetable_item in timetable_routes.values():
         path = timetable_item["path"]
         time = timetable_item["time"]
         time_range:list =  timetable_item["time_range"]
@@ -104,24 +100,20 @@ def match_routes(timetable_routes) -> list[dict]:
         # Verify if there is not a broken path
         if len(path) < 2 or len(time) < 1:
             continue
-
-        for route in all_routes.values():
-            # just verify if the route is existent and have a start and a end
-            if len(route["path"]) <= 2:
-                continue
-            route_start = route["path"][0]
-            route_end = route["path"][-1]
-            if route_start == path[0] and route_end == path[1]:
-                key = route["totalDistance"]
-                matched_routes[key] = route
-                distances_matched.append(key)
         
+        distances_matched, matched_routes, number_of_routes_matched = match_routes(routes=all_routes, path=path)
+
         # If no matched route, just go for the next timetable
         if len(matched_routes) < 1:
             continue
 
-        distances_matched.sort()
-        number_of_routes_matched = len(distances_matched)
+        dict_meu = {}
+        for t in time_range:
+            if time_range_quantity > 1:
+                index_distance = round(time_range.index(t) * (number_of_routes_matched-1)/(time_range_quantity-1))
+            else: 
+                index_distance = 0
+            dict_meu[t] = index_distance
 
         for trip in time:
             start_time = trip[0]
@@ -129,11 +121,8 @@ def match_routes(timetable_routes) -> list[dict]:
             diff = (time_diff(start_time,arrival_time).seconds)/60
             print(time_range)
             print(diff)
-            if time_range_quantity > 1:
-                index_distance = round(time_range.index(diff) * (number_of_routes_matched-1)/(time_range_quantity-1))
-            else: 
-                index_distance = 0
-            distance = distances_matched[index_distance]
+            index = dict_meu[diff]
+            distance = distances_matched[index]
             print("Distancia: " + str(distances_matched))
             print(distance)
             route = matched_routes[distance]
@@ -147,5 +136,22 @@ def match_routes(timetable_routes) -> list[dict]:
 
     return timetable
     
+def match_routes(routes: dict, path:dict)-> list[list,dict,int]:
+    distances_matched = []
+    matched_routes = {}
+    for route in routes.values():
+        # just verify if the route is existent and have a start and a end
+        if len(route["path"]) <= 2:
+            continue
+        route_start = route["path"][0]
+        route_end = route["path"][-1]
+        if route_start == path[0] and route_end == path[1]:
+            key = route["totalDistance"]
+            matched_routes[key] = route
+            distances_matched.append(key)
+    distances_matched.sort()
+    number_of_routes_matched = len(distances_matched)
+    return distances_matched, matched_routes, number_of_routes_matched
+
 if __name__ == "__main__":
     main()
