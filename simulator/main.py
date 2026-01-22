@@ -14,7 +14,7 @@ def create_time_table(routes):
 
 
 def main():
-    railway_network = network.create_graph()
+    railway_network = network.get_railway_graph()
     timetable = tt.main()
 
 

@@ -1,3 +1,4 @@
+from networkx import DiGraph
 import openpyxl
 import network
 import routes
@@ -11,9 +12,10 @@ def main():
     timetable_monday_reverse = timetable["Mondays to Fridays Reverse"]
     
     routes_dict = {}
+    graph = network.get_railway_graph()
     routes_dict = extract_routes_and_times(timetable_file=timetable_monday_fw, routes_dict=routes_dict)
     routes_dict = extract_routes_and_times(timetable_file=timetable_monday_reverse, routes_dict=routes_dict)
-    return create_timetable(routes_dict)
+    return create_timetable(routes_dict, railway_network=graph)
 
 def extract_routes_and_times(timetable_file, routes_dict) -> dict:
     _,station_codes = network.get_stations()
@@ -88,15 +90,23 @@ def time_diff(start, end):
 
     return end_dt - start_dt
 
-def create_timetable(timetable_routes) -> list[dict]:
+def time_addition(start, quantity):
+    fmt = "%H:%M"
+    start_dt = datetime.strptime(start, fmt)
+    return (start_dt + timedelta(minutes=quantity)).strftime("%H:%M")
+
+
+
+def create_timetable(timetable_routes: dict, railway_network: DiGraph) -> list[dict]:
     all_routes = routes.get_all_routes_and_distances()
     timetable = []
     for timetable_item in timetable_routes.values():
-        path = timetable_item["path"]
-        time = timetable_item["time"]
+        path:list = timetable_item["path"]
+        time:list = timetable_item["time"]
         time_range:list =  timetable_item["time_range"]
         time_range.sort()
         time_range_quantity = len(time_range)
+
         # Verify if there is not a broken path
         if len(path) < 2 or len(time) < 1:
             continue
@@ -117,20 +127,24 @@ def create_timetable(timetable_routes) -> list[dict]:
 
         for trip in time:
             start_time = trip[0]
-            arrival_time = trip[1]
-            diff = (time_diff(start_time,arrival_time).seconds)/60
-            print(time_range)
-            print(diff)
+            end_time = trip[1]
+            diff = (time_diff(start_time,end_time).seconds)/60
+            # print(time_range)
+            # print(diff)
             index = dict_meu[diff]
             distance = distances_matched[index]
-            print("Distancia: " + str(distances_matched))
-            print(distance)
+            # print("Distancia: " + str(distances_matched))
+            # print(distance)
             route = matched_routes[distance]
+            path = route["path"]
+            arrival_time, departure_time = predict_times(start_time=start_time,total_time_trip=diff, railway_network=railway_network, path=path, distance=distance )
+            arrival_time.append(end_time)
+            departure_time.append(end_time)
             new_object = {
                 "distance": distance,
-                "path": route["path"],
-                "arrival_time": [start_time,arrival_time],
-                "departure_time":[start_time,arrival_time]
+                "path": path,
+                "arrival_time": arrival_time,
+                "departure_time": departure_time
             }
             timetable.append(new_object)
 
@@ -152,6 +166,24 @@ def match_routes(routes: dict, path:dict)-> list[list,dict,int]:
     distances_matched.sort()
     number_of_routes_matched = len(distances_matched)
     return distances_matched, matched_routes, number_of_routes_matched
+
+def predict_times(start_time, total_time_trip, railway_network:DiGraph, path, distance) -> tuple[list, list]:
+    arrival_time = [start_time]
+    departure_time = [start_time]
+    avg_km_min = distance/total_time_trip
+    time_atm = start_time
+    for i in range(0,len(path)-1):
+        station_origin = path[i]
+        station_destination = path[i+1]
+        distance_between_stations = float(railway_network[station_origin][station_destination]["weight"])
+        travel_time_between_staion = int(distance_between_stations/avg_km_min)
+        if travel_time_between_staion < 1:
+            travel_time_between_staion = 1
+        time_atm = time_addition(time_atm,travel_time_between_staion)
+        arrival_time.append(time_atm)
+        departure_time.append(time_atm)
+    
+    return arrival_time, departure_time
 
 if __name__ == "__main__":
     main()

@@ -45,7 +45,7 @@ def get_edges_weight_dict() -> dict:
     return edges_dict
 
 
-def create_graph() -> DiGraph:
+def get_railway_graph() -> DiGraph:
     stations, _ = get_stations()
     edges = get_edges()
     graph = nx.DiGraph()
