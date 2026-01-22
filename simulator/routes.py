@@ -1,4 +1,6 @@
 import csv
+import network as ntw
+import math
 
 def extract_unique_routes():
     unique_routes = {}
@@ -30,3 +32,29 @@ def get_all_routes():
     # Average route usage per day
     # print(sum/len(routes))
     return routes
+
+def get_all_routes_and_distances():
+    """
+    This function returns the routes, with their respectives distances in KM, using the information in the dataset of edges.
+    Some routes were removed since their total distance was equal to 0.
+    This happened because the stations and consequently their edge and the did not exist in Stations.csv and Edges.tsv files. 
+    """
+    stations = ntw.get_edges_weight_dict()
+    routes = get_all_routes()
+    problems = []
+    for route in routes.values():
+        total_route_distance = 0 
+        for i in range(0,len(route["path"])-1):
+            key = route["path"][i] + "," + route["path"][i+1]
+            if stations.get(key):
+                total_route_distance += stations[key]
+            else:
+                problems.append([key,i])
+                print(route["path"])
+                print(key)
+        total_route_distance  = round(total_route_distance,2)
+        # print(str(total_route_distance)+ "\n")
+    print(problems)
+    print("Len of problems stations: " + str(len(problems)))
+
+get_all_routes_and_distances()
