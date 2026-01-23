@@ -2,10 +2,16 @@ from networkx import DiGraph
 import openpyxl
 import network
 import routes
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import json
 import pyarrow as pa
 import pyarrow.parquet as pq
+
+"""
+Some assumptions were made here. 
+For the final time, the calculus will be done through a constant of velocity. It will assume that Time*Velocity = Distance. 
+The distance is provided by the dataset and its the edges weight. The velocity is assumed to be a constant to simplify the equation.
+"""
 
 def main():
     # Read the excel files
@@ -26,12 +32,15 @@ def save_files(timetable,list_of_times):
     schema = pa.schema([
         ('path', pa.list_(pa.string())),          
         ('distance', pa.float64()),               
-        ('arrival_times', pa.list_(pa.string())), 
-        ('departure_times', pa.list_(pa.string())),
+        ('arrival_times', pa.list_(pa.timestamp(unit ="s"))), 
+        ('departure_times', pa.list_(pa.timestamp(unit ="s"))),
         ('first_departure', pa.string())          
     ])
     table = pa.Table.from_pylist(timetable,schema)
-    pq.write_table(table,"../database/timetable/myfile.parquet", compression="snappy")
+
+    pq.write_table(table,"./.output/timetable/trips.parquet")
+    # Save the list of times in a json file for later acceess in simulation
+    # pq.write_table(list_of_times,"./output/timetable/hours.parquet",coerce_timestamps="ms", schema=None)
 
 def extract_routes_and_times(timetable_file, routes_dict) -> dict:
     _,station_codes = network.get_stations()
@@ -107,11 +116,13 @@ def time_diff(start, end):
     return end_dt - start_dt
 
 def time_addition(start, quantity):
-    fmt = "%H:%M"
-    start_dt = datetime.strptime(start, fmt)
-    return (start_dt + timedelta(minutes=quantity)).strftime("%H:%M")
+    return (start + timedelta(minutes=quantity))
 
-
+def parse_date(date_to_be_parsed):
+    parsed_time = datetime.strptime(date_to_be_parsed, "%H:%M").time()
+    var =  datetime.combine(date.today(), parsed_time)
+    print(var)
+    return var
 
 def create_timetable(timetable_routes: dict, railway_network: DiGraph) -> list[dict]:
     all_routes = routes.get_all_routes_and_distances()
@@ -150,6 +161,8 @@ def create_timetable(timetable_routes: dict, railway_network: DiGraph) -> list[d
             distance = distances_matched[index]
             route = matched_routes[distance]
             path = route["path"]
+            start_time = parse_date(start_time)
+            end_time = parse_date(end_time)
             arrival_time, departure_time = predict_times(start_time=start_time,total_time_trip=diff, railway_network=railway_network, path=path, distance=distance )
             arrival_time.append(end_time)
             departure_time.append(end_time)
