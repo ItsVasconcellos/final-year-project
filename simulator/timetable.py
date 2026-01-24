@@ -3,7 +3,7 @@ import openpyxl
 import network
 import routes
 from datetime import datetime, timedelta, date
-import json
+import os
 import pyarrow as pa
 import pyarrow.parquet as pq
 
@@ -37,7 +37,10 @@ def save_files(timetable,list_of_times):
         ('first_departure', pa.timestamp("s"))          
     ])
     table = pa.Table.from_pylist(timetable,schema)
-
+    if not os.path.exists(os.path.join(os.getcwd(), '/.output')):
+        os.mkdir(".output")
+    if not os.path.exists(os.path.join(os.getcwd(), '/.timetable')):
+        os.mkdir(".output/timetable", mode=0o777, dir_fd=None)
     pq.write_table(table,"./.output/timetable/trips.parquet")
     # Save the list of times in a json file for later acceess in simulation
     # pq.write_table(list_of_times,"./output/timetable/hours.parquet",coerce_timestamps="ms", schema=None)
@@ -213,7 +216,6 @@ def predict_times(start_time, total_time_trip, railway_network:DiGraph, path, di
         if travel_time_between_staion < 1:
             travel_time_between_staion = 1
         time_atm = time_addition(time_atm,travel_time_between_staion)
-        print(datetime.timestamp(time_atm))
         arrival_time.append(datetime.timestamp(time_atm))
         departure_time.append(datetime.timestamp(time_atm))
     
