@@ -37,13 +37,13 @@ def save_files(timetable,list_of_times):
         ('first_departure', pa.timestamp("s"))          
     ])
     table = pa.Table.from_pylist(timetable,schema)
-    if not os.path.exists(os.path.join(os.getcwd(), '/.output')):
+    if not os.path.exists(os.path.join(os.getcwd(), '.output')):
         os.mkdir(".output")
-    if not os.path.exists(os.path.join(os.getcwd(), '/.timetable')):
+    if not os.path.exists(os.path.join(os.getcwd(), '.output/timetable')):
         os.mkdir(".output/timetable", mode=0o777, dir_fd=None)
     pq.write_table(table,"./.output/timetable/trips.parquet")
     # Save the list of times in a json file for later acceess in simulation
-    # pq.write_table(list_of_times,"./output/timetable/hours.parquet",coerce_timestamps="ms", schema=None)
+    # pq.write_table(list_of_times,"./output/timetable/hours.parquet",coerce_timestamps="s", schema=None)
 
 def extract_routes_and_times(timetable_file, routes_dict) -> dict:
     _,station_codes = network.get_stations()
