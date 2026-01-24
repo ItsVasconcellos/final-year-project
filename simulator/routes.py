@@ -1,6 +1,5 @@
 import csv
 import network as ntw
-import math
 
 def extract_unique_routes():
     unique_routes = {}
