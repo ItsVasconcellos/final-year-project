@@ -32,9 +32,9 @@ def save_files(timetable,list_of_times):
     schema = pa.schema([
         ('path', pa.list_(pa.string())),          
         ('distance', pa.float64()),               
-        ('arrival_times', pa.list_(pa.timestamp(unit ="s"))), 
-        ('departure_times', pa.list_(pa.timestamp(unit ="s"))),
-        ('first_departure', pa.string())          
+        ('arrival_times', pa.list_(pa.timestamp("s"))), 
+        ('departure_times', pa.list_(pa.timestamp("s"))),
+        ('first_departure', pa.timestamp("s"))          
     ])
     table = pa.Table.from_pylist(timetable,schema)
 
@@ -120,9 +120,7 @@ def time_addition(start, quantity):
 
 def parse_date(date_to_be_parsed):
     parsed_time = datetime.strptime(date_to_be_parsed, "%H:%M").time()
-    var =  datetime.combine(date.today(), parsed_time)
-    print(var)
-    return var
+    return datetime.combine(date.today(), parsed_time)
 
 def create_timetable(timetable_routes: dict, railway_network: DiGraph) -> list[dict]:
     all_routes = routes.get_all_routes_and_distances()
@@ -164,10 +162,10 @@ def create_timetable(timetable_routes: dict, railway_network: DiGraph) -> list[d
             start_time = parse_date(start_time)
             end_time = parse_date(end_time)
             arrival_time, departure_time = predict_times(start_time=start_time,total_time_trip=diff, railway_network=railway_network, path=path, distance=distance )
-            arrival_time.append(end_time)
-            departure_time.append(end_time)
+            arrival_time.append(datetime.timestamp(end_time))
+            departure_time.append(datetime.timestamp(end_time))
             for a in arrival_time:
-                if a not in time_list_for_timetable: 
+                if a not in time_list_for_timetable:
                     time_list_for_timetable.append(a)
             for d in departure_time:
                 if d not in  time_list_for_timetable: 
@@ -203,8 +201,8 @@ def match_routes(routes: dict, path:dict)-> list[list,dict,int]:
     return distances_matched, matched_routes, number_of_routes_matched
 
 def predict_times(start_time, total_time_trip, railway_network:DiGraph, path, distance) -> tuple[list, list]:
-    arrival_time = [start_time]
-    departure_time = [start_time]
+    arrival_time = [datetime.timestamp(start_time)]
+    departure_time = [datetime.timestamp(start_time)]
     avg_km_min = distance/total_time_trip
     time_atm = start_time
     for i in range(0,len(path)-1):
@@ -215,8 +213,9 @@ def predict_times(start_time, total_time_trip, railway_network:DiGraph, path, di
         if travel_time_between_staion < 1:
             travel_time_between_staion = 1
         time_atm = time_addition(time_atm,travel_time_between_staion)
-        arrival_time.append(time_atm)
-        departure_time.append(time_atm)
+        print(datetime.timestamp(time_atm))
+        arrival_time.append(datetime.timestamp(time_atm))
+        departure_time.append(datetime.timestamp(time_atm))
     
     return arrival_time, departure_time
 
