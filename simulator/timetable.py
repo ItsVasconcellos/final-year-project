@@ -1,9 +1,9 @@
-from networkx import DiGraph
-import openpyxl
 import network
 import routes
-from datetime import datetime, timedelta, date
 import os
+from datetime import datetime, timedelta, date
+from networkx import DiGraph
+import openpyxl
 import pyarrow as pa
 import pyarrow.parquet as pq
 
@@ -36,13 +36,18 @@ def save_files(timetable,list_of_times):
         ('departure_times', pa.list_(pa.timestamp("s"))),
         ('first_departure', pa.timestamp("s"))          
     ])
-    table = pa.Table.from_pylist(timetable,schema)
+    trip_table = pa.Table.from_pylist(timetable,schema)
     if not os.path.exists(os.path.join(os.getcwd(), '.output')):
         os.mkdir(".output")
     if not os.path.exists(os.path.join(os.getcwd(), '.output/timetable')):
         os.mkdir(".output/timetable", mode=0o777, dir_fd=None)
-    pq.write_table(table,"./.output/timetable/trips.parquet")
+    pq.write_table(trip_table,".output/timetable/trips.parquet")
+    time_schema = pa.schema([
+        ('time', pa.timestamp('s'))
+    ])
     # Save the list of times in a json file for later acceess in simulation
+    time_table = pa.Table.from_arrays([list_of_times], schema=time_schema)
+    pq.write_table(time_table, ".output/timetable/timelist.parquet")
     # pq.write_table(list_of_times,"./output/timetable/hours.parquet",coerce_timestamps="s", schema=None)
 
 def extract_routes_and_times(timetable_file, routes_dict) -> dict:
