@@ -1,8 +1,8 @@
 import hypernetx as hnx
+import hypernetx.classes.hypergraph as hch
 import network as nt
 import routes as rt
 import plotly.graph_objects as go
-import pandas as pd
 
 def main():
     stations = nt.get_station_with_latitude()
@@ -11,7 +11,7 @@ def main():
     routes_list = []
     for route in routes.values():
         routes_list.append(route["path"])
-    hypergraph = hnx.Hypergraph(routes_list)
+    hypergraph: hch.Hypergraph  = hnx.Hypergraph(routes_list)
     node_list = hypergraph.nodes
     centrality = hnx.algorithms.s_betweenness_centrality(hypergraph, edges=False)
     # --- Step 1: Extract data into flat Python lists ---
