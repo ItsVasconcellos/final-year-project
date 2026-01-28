@@ -123,6 +123,11 @@ def time_diff(start, end):
 
     return end_dt - start_dt
 
+def fix_end_time(start_dt,end_dt):
+    if end_dt <= start_dt:
+        end_dt += timedelta(days=1)
+    return end_dt
+
 def time_addition(start, quantity):
     return (start + timedelta(minutes=quantity))
 
@@ -168,7 +173,7 @@ def create_timetable(timetable_routes: dict, railway_network: DiGraph) -> list[d
             route = matched_routes[distance]
             path = route["path"]
             start_time = parse_date(start_time)
-            end_time = parse_date(end_time)
+            end_time = fix_end_time(start_time,parse_date(end_time))
             arrival_time, departure_time = predict_times(start_time=start_time,total_time_trip=diff, railway_network=railway_network, path=path, distance=distance )
             arrival_time.append(datetime.timestamp(end_time))
             departure_time.append(datetime.timestamp(end_time))
