@@ -218,11 +218,11 @@ def predict_times(start_time, total_time_trip, railway_network:DiGraph, path, di
     departure_time = [datetime.timestamp(start_time)]
     avg_km_min = distance/total_time_trip
     time_atm = start_time
-    for i in range(0,len(path)-1):
-        station_origin = path[i]
-        station_destination = path[i+1]
+    for i in range(1,len(path)-1):
+        station_origin = path[i-1]
+        station_destination = path[i]
         distance_between_stations = float(railway_network[station_origin][station_destination]["weight"])
-        travel_time_between_staion = int(distance_between_stations/avg_km_min)
+        travel_time_between_staion = round(distance_between_stations/avg_km_min)
         if travel_time_between_staion < 1:
             travel_time_between_staion = 1
         time_atm = time_addition(time_atm,travel_time_between_staion)
