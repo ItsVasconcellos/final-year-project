@@ -2,7 +2,10 @@ import network
 from pyarrow import TimestampScalar
 import pyarrow.parquet as pq
 import pyarrow.compute as pc
-from datetime import datetime
+from datetime import datetime,timedelta
+import random
+import bisect 
+
 trip_parquet_file_path = ".output/timetable/trips.parquet"
 time_list_file_path = ".output/timetable/timelist.parquet"
 
@@ -23,8 +26,8 @@ def main():
     # Iterate through all the time_list available
     i = 0
     while i < len(time_list):
-        # if i > 50: 
-        #     break
+        if i > 100: 
+            break
         # print("\n")
         # print(time)
         # print(active_trips)
@@ -32,49 +35,90 @@ def main():
         # Looping through the active trips and moving to the next station if it arrived
         for trip in active_trips[:]:
 
-            if is_trip_over(active_trip=trip, active_trips=active_trips, final_trip=final_trip):
+            if is_trip_over(active_trip=trip, active_trips=active_trips, final_trip=final_trip, time=time_list[i], time_list=time_list):
                 continue
             
-            move_to_next_station(trip=trip, time=time_list[i])
+            move_to_next_station(trip=trip, time=time_list[i], time_list=time_list)
 
-        # Verifying if any trip has started and add to active trips
-        new_trips = verify_new_trips(trips,time_list[i])
-        if len(new_trips) >= 1: add_new_trips(new_trips=new_trips, active_trips=active_trips)
+        # Verifying if any trip has started 
+        new_trips = verify_new_trips(trips=trips,time=time_list[i])
+        # Call function to add trips
+        add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_list[i])
         
         i+=1
-
     for i, trip in enumerate(final_trip):
-        print(trip)
-        # print(len(trip["path"]))
-        # print(trip["station"])
+        print(trip["path"])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
+    for i, trip in enumerate(active_trips):
+        print(trip["path"])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
+        # if (len(trip["path"])-1) != (trip["next_station_index"]):
+        #     print("oloquinho meu!")
     print(len(final_trip))
+    
 
 def verify_new_trips(trips,time):
     # Create a filter verifying if the first_departure matches with the time active and return the trips found in parquet file
     mask = pc.equal(trips["first_departure"],time)
     return trips.filter(mask).to_pylist()
 
-def add_new_trips(new_trips, active_trips):
+def add_new_trips(new_trips, active_trips, time):
     for trip in new_trips:
         trip["next_station_index"] = 1
+        next_station = trip["arrival_times"][1]  
+        trip["expected_arrival_time"] = trip["arrival_times"].copy()
+        trip["expected_departure_time"] = trip["departure_times"].copy()
+        trip["actual_arrival_time"] = [time]
+        trip["actual_departure_time"] = [time]
         active_trips.append(trip)
 
-def is_trip_over(active_trip, final_trip, active_trips):
+def is_trip_over(active_trip, final_trip, active_trips, time, time_list):
     # If trip ended, remove from active trips and add to the final_trip list
-    if len(active_trip["path"]) - 1 == active_trip["next_station_index"]:
-        index = active_trips.index(active_trip)
-        trip_ended = active_trips.pop(int(index))
-        final_trip.append(trip_ended)
-        return True
+    if len(active_trip["path"])-1 == active_trip["next_station_index"]:
+        if move_to_next_station(active_trip, time, time_list):
+            index = active_trips.index(active_trip)
+            trip_ended = active_trips.pop(int(index))
+            final_trip.append(trip_ended)
+            return True
     
     # If not, return False
     return False
 
-def move_to_next_station(trip, time):
-    next_station = trip["next_station_index"]   
-    if time == trip["arrival_times"][next_station]:
-        # trip["actual_arrival_time"]
-        trip["next_station_index"] += 1
+def move_to_next_station(trip, time, time_list):
+    next_station = trip["next_station_index"]
+    time_to_arrive_next_station = trip["expected_arrival_time"][next_station]
+    # Create a small amount of trips with delay. This distribution is more likely prone to numbers that will be round to 0, therefore no delay.
+    has_delay = round(random.betavariate(2,5))
+    if has_delay == 1:
+        delay_quantity_in_minutes = random.randrange(0,10)
+        for i in range(next_station,len(trip["path"])):
+            new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=delay_quantity_in_minutes)    
+            if i == next_station:
+                print(trip["path"])
+                print(trip["expected_arrival_time"][i])
+                print(new_time_expected)
+            trip["expected_arrival_time"][i] = new_time_expected
+            trip["expected_departure_time"][i] = new_time_expected
+            if new_time_expected not in time_list:
+                bisect.insort(time_list, new_time_expected)
+        return False
+    
+    # print("Tempo: " + time.strftime('%H-%M'))
+    # print("viagem:" + trip["actual_arrival_time"][next_station].strftime('%H-%M'))
+    # print("Size: " +  str(len(trip["arrival_times"]))+ " - " + str(next_station) )
+    # Check if train is supposed to arrive at the station, if not return false
+    if time < time_to_arrive_next_station:
+        return False
+    
+    # Check if other trains that are supposed to arrive earlier in this station have arrived
+    # function()
+
+    trip["next_station_index"] += 1
+    trip["actual_departure_time"].append(time)
+    trip["actual_arrival_time"].append(time)
+    return True
 
 if __name__ == "__main__":
     main()
