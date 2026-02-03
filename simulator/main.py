@@ -34,28 +34,26 @@ def main():
         # Looping through the active trips and moving to the next station if it arrived
         for trip in active_trips[:]:
             #Verify if trip has ended
-            if is_trip_over(active_trip=trip, active_trips=active_trips, final_trip_list=final_trip_list, time=time_list[i], time_list=time_list):
+            is_trip_over = is_last_station(active_trip=trip)
+            arrived_at_next_station = move_to_next_station(trip=trip, time=time_list[i], time_list=time_list, active_trips=active_trips)
+            # If the trips was on the last station and succesfully arrived at the last station, remove it from the active trips
+            if is_trip_over and arrived_at_next_station:
+                index = active_trips.index(trip)
+                trip_ended = active_trips.pop(int(index))
+                final_trip_list.append(trip_ended)
                 continue
             
-            move_to_next_station(trip=trip, time=time_list[i], time_list=time_list, active_trips=active_trips)
-
         # Verifying if any trip has started 
         new_trips = verify_new_trips(trips=trips,time=time_list[i])
         # Call function to add trips
         add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_list[i])
         
         i+=1
+    # Debugging prints 
     for i, trip in enumerate(final_trip_list):
         print(trip["path"])
         print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
         print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
-    # for i, trip in enumerate(active_trips):
-    #     print(trip["path"])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
-    #     if (len(trip["path"])) != (trip["next_station_index"]):
-    #         print("oloquinho meu!")
-    # print(len(final_trip_list))
     print(len(time_list))
     # save_trips(final_trip_list)
     
@@ -74,23 +72,20 @@ def add_new_trips(new_trips, active_trips, time):
         trip["actual_departure_time"] = [time]
         active_trips.append(trip)
 
-def is_trip_over(active_trip, final_trip_list, active_trips, time, time_list):
-    # If trip ended, remove from active trips and add to the final_trip_list list
+def is_last_station(active_trip):
+    """
+    returns true if this is the last station the train is supposed to be    
+    :param active_trip: a valid dict trip containing the full path and station index 
+    """
     if len(active_trip["path"])-1 > active_trip["next_station_index"]:
-        if move_to_next_station(trip=active_trip, time=time, time_list=time_list, active_trips=active_trips):
-            index = active_trips.index(active_trip)
-            trip_ended = active_trips.pop(int(index))
-            final_trip_list.append(trip_ended)
             return True
-    
-    # If not, return False
     return False
 
 def move_to_next_station(trip, time, time_list, active_trips):
     next_station = trip["next_station_index"]
     name_next_station = trip["path"][next_station] 
     time_to_arrive_next_station = trip["expected_arrival_time"][next_station]
-        # Check if train is supposed to arrive at the station, if not return false
+    # Check if train is supposed to arrive at the station, if not return false
     if time < time_to_arrive_next_station:
         return False
     # Create a small amount of trips with delay. This distribution is more likely prone to numbers that will be round to 0, therefore no delay.
