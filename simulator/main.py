@@ -6,6 +6,7 @@ from datetime import datetime,timedelta
 import random
 import bisect 
 import os
+import sys
 
 trip_parquet_file_path = ".output/timetable/trips.parquet"
 time_list_file_path = ".output/timetable/timelist.parquet"
@@ -28,6 +29,8 @@ def main():
     # Iterate through all the time_list available
     i = 0
     while i < len(time_list):
+        # if i > 200:
+        #     break
         # print("\n")
         # print(time)
         # print(active_trips)
@@ -46,16 +49,16 @@ def main():
         add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_list[i])
         
         i+=1
-    # for i, trip in enumerate(final_trip_list):
-        # print(trip["path"])
-        # print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
-        # print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
+    for i, trip in enumerate(final_trip_list):
+        print(trip["path"])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
     # for i, trip in enumerate(active_trips):
-        # print(trip["path"])
-        # print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
-        # print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
-        # if (len(trip["path"])-1) != (trip["next_station_index"]):
-        #     print("oloquinho meu!")
+    #     print(trip["path"])
+    #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
+    #     print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
+    #     if (len(trip["path"])) != (trip["next_station_index"]):
+    #         print("oloquinho meu!")
     # print(len(final_trip_list))
     print(len(time_list))
     # save_trips(final_trip_list)
@@ -78,7 +81,7 @@ def add_new_trips(new_trips, active_trips, time):
 
 def is_trip_over(active_trip, final_trip_list, active_trips, time, time_list):
     # If trip ended, remove from active trips and add to the final_trip_list list
-    if len(active_trip["path"])-1 == active_trip["next_station_index"]:
+    if len(active_trip["path"])-1 > active_trip["next_station_index"]:
         if move_to_next_station(trip=active_trip, time=time, time_list=time_list, active_trips=active_trips):
             index = active_trips.index(active_trip)
             trip_ended = active_trips.pop(int(index))
@@ -90,10 +93,14 @@ def is_trip_over(active_trip, final_trip_list, active_trips, time, time_list):
 
 def move_to_next_station(trip, time, time_list, active_trips):
     next_station = trip["next_station_index"]
-    print(next_station)
-    print(len("path"))
     name_next_station = trip["path"][next_station] 
     time_to_arrive_next_station = trip["expected_arrival_time"][next_station]
+        # Check if train is supposed to arrive at the station, if not return false
+    if time < time_to_arrive_next_station:
+        # print("Teste")
+        # print("Tempo: " + time.strftime('%H-%M'))
+        # print("viagem:" + time_to_arrive_next_station.strftime('%H-%M'))
+        return False
     # Create a small amount of trips with delay. This distribution is more likely prone to numbers that will be round to 0, therefore no delay.
     has_delay = round(random.betavariate(2,5))
     if has_delay == 1:
@@ -110,32 +117,6 @@ def move_to_next_station(trip, time, time_list, active_trips):
             if new_time_expected not in time_list:
                 bisect.insort(time_list, new_time_expected)
         return False
-    
-    # print("Tempo: " + time.strftime('%H-%M'))
-    # print("viagem:" + trip["actual_arrival_time"][next_station].strftime('%H-%M'))
-    # print("Size: " +  str(len(trip["arrival_times"]))+ " - " + str(next_station) )
-    # Check if train is supposed to arrive at the station, if not return false
-    if time < time_to_arrive_next_station:
-        # print("Teste")
-        # print("Tempo: " + time.strftime('%H-%M'))
-        # print("viagem:" + time_to_arrive_next_station.strftime('%H-%M'))
-        return False
-    # print("True")
-    # print("Tempo: " + time.strftime('%H-%M'))
-    # print("viagem:" + time_to_arrive_next_station.strftime('%H-%M'))
-    
-    # Check if other trains that are supposed to arrive earlier in this station have arrived
-    # for active_trip in active_trips:
-    #     if "EDB" in active_trip["path"]:
-    #         index = active_trip["path"].index("EDB") 
-    #         expected_arrival_time = active_trip["expected_arrival_time"][index]
-    #         if expected_arrival_time > time and name_next_station == "EDB":
-    #             continue
-    #         if index < len(active_trip["actual_arrival_time"]):
-    #             # print("Trip not arrived")
-    #             pass
-
-        
     trip["next_station_index"] += 1
     trip["actual_departure_time"].append(time)
     trip["actual_arrival_time"].append(time)
