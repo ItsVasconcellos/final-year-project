@@ -25,19 +25,15 @@ def main():
     active_trips:list[dict] = []
     final_trip_list:list[dict] = []
 
-    print(len(time_list))
     # Iterate through all the time_list available
     i = 0
     while i < len(time_list):
         # if i > 200:
         #     break
-        # print("\n")
-        # print(time)
-        # print(active_trips)
         
         # Looping through the active trips and moving to the next station if it arrived
         for trip in active_trips[:]:
-
+            #Verify if trip has ended
             if is_trip_over(active_trip=trip, active_trips=active_trips, final_trip_list=final_trip_list, time=time_list[i], time_list=time_list):
                 continue
             
@@ -62,7 +58,6 @@ def main():
     # print(len(final_trip_list))
     print(len(time_list))
     # save_trips(final_trip_list)
-
     
 
 def verify_new_trips(trips,time):
@@ -97,21 +92,13 @@ def move_to_next_station(trip, time, time_list, active_trips):
     time_to_arrive_next_station = trip["expected_arrival_time"][next_station]
         # Check if train is supposed to arrive at the station, if not return false
     if time < time_to_arrive_next_station:
-        # print("Teste")
-        # print("Tempo: " + time.strftime('%H-%M'))
-        # print("viagem:" + time_to_arrive_next_station.strftime('%H-%M'))
         return False
     # Create a small amount of trips with delay. This distribution is more likely prone to numbers that will be round to 0, therefore no delay.
     has_delay = round(random.betavariate(2,5))
     if has_delay == 1:
         delay_quantity_in_minutes = random.randrange(0,10)
         for i in range(next_station,len(trip["path"])):
-            new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=delay_quantity_in_minutes)    
-            # if i == next_station:
-            #     # print(trip["path"])
-            #     # print(trip["expected_arrival_time"][i])
-            #     # print(new_time_expected)
-            #     pass
+            new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=delay_quantity_in_minutes)
             trip["expected_arrival_time"][i] = new_time_expected
             trip["expected_departure_time"][i] = new_time_expected
             if new_time_expected not in time_list:
