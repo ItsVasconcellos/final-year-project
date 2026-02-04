@@ -1,5 +1,6 @@
 import network
 from pyarrow import TimestampScalar
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pyarrow.compute as pc
 from datetime import datetime,timedelta
@@ -14,7 +15,7 @@ time_list_file_path = ".output/timetable/timelist.parquet"
 def main():
     # atm no need for the railway network
     # railway_network = network.get_railway_graph()
-    
+
     # Load the parquet file that contains all the trips
     trips = pq.read_table(trip_parquet_file_path)
     # Read the parquet file which contains all the times in a unique column. That's why just using the first index.
@@ -24,45 +25,66 @@ def main():
     # List of active_trips (live trips) and final trips (trips that have ended)
     active_trips:list[dict] = []
     final_trip_list:list[dict] = []
-    print(len(trips))
+    print("Total number of trips: " + str(len(trips)))
     # Iterate through all the time_list available
     i = 0
     while i < len(time_list):
-        # if i > 100:
-        #     break
-        
+        # print(time_list[i])
         # Looping through the active trips and moving to the next station if it arrived
         for trip in active_trips[:]:
-            #Verify if trip has ended
-            can_go_to_next_station = has_every_train_arrived(active_trip=trip, active_trips=active_trips, time=time_list[i])
+            can_go_to_next_station = has_every_train_arrived(active_trip=trip, active_trips=active_trips, time=time_list[i], time_list=time_list)
             if not can_go_to_next_station:
                 continue
+            #Verify if trip has ended
             is_trip_over = is_last_station(active_trip=trip)
             # If the trips was on the last station and succesfully arrived at the last station, remove it from the active trips
-            move_to_next_station(trip=trip, time=time_list[i], time_list=time_list)
             if is_trip_over:
                 index = active_trips.index(trip)
                 trip_ended = active_trips.pop(int(index))
                 final_trip_list.append(trip_ended)
                 continue
+            move_to_next_station(trip=trip, time=time_list[i], time_list=time_list)
             
         # Verifying if any trip has started 
         new_trips = verify_new_trips(trips=trips,time=time_list[i])
         # Call function to add trips
         add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_list[i])
+
+        # for trip in active_trips:
+        #     print(trip["path"])
+        #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
+        #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
+        # if active_trips:
+        #     print(time_list[i])
+        #     input()
         i+=1
     # Debugging prints 
-    # for i, trip in enumerate(final_trip_list):
+    
+    print("Finished trips")
+    
+    for i, trip in enumerate(final_trip_list):
+        for i in range(0,len(trip["path"])):
+            if trip["expected_arrival_time"][i] != trip["actual_arrival_time"][i]:
+                print(trip["path"])
+                print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
+                print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
+    print("Finished trips - " + str(len(final_trip_list)))
+    print("Active trips")
+    # for j,trip in enumerate(active_trips):
+    #     if j > 50: break
     #     print(trip["path"])
+    #     print(" - size: " + str(len(trip["path"])))
     #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
     #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
-    # print(active_trips)
-    print(time_list[-1])
+        # if active_trips:
+        #     input()
+        #     print(time_list[i])
+
+
     print(len(time_list))
-    print(len(active_trips))
+    print("Number of remaining: " + str(len(active_trips)))
     # save_trips(final_trip_list)
     
-
 def verify_new_trips(trips,time):
     # Create a filter verifying if the first_departure matches with the time active and return the trips found in parquet file
     mask = pc.equal(trips["first_departure"],time)
@@ -82,45 +104,49 @@ def is_last_station(active_trip):
     returns true if this is the last station the train is supposed to be    
     :param active_trip: a valid dict trip containing the full path and station index 
     """
-    if len(active_trip["path"])-1 > active_trip["next_station_index"]:
-            return False
-    return True
+    if len(active_trip["path"])-1 < active_trip["next_station_index"]:
+            return True
+    return False
 
 def move_to_next_station(trip, time, time_list):
     next_station = trip["next_station_index"]
-    # print(time.strftime("%H:%M"))    
-    # print("LenPath" + str(len(trip["path"])) + " -  Index:" + str(next_station) + " - First Departure: " + trip["first_departure"].strftime("%H:%M"))
-    # print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
     time_to_arrive_next_station = trip["expected_arrival_time"][next_station]
     # Check if train is supposed to arrive at the station, if not return false
     if time < time_to_arrive_next_station:
         return False
     # Create a small amount of trips with delay. This distribution is more likely prone to numbers that will be round to 0, therefore no delay.
-    has_delay = round(random.betavariate(2,5))
-    if has_delay == 1:
-        delay_quantity_in_minutes = random.randrange(0,10)
-        for i in range(next_station,len(trip["path"])):
-            new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=delay_quantity_in_minutes)
-            trip["expected_arrival_time"][i] = new_time_expected
-            trip["expected_departure_time"][i] = new_time_expected
-            if new_time_expected not in time_list:
-                bisect.insort(time_list, new_time_expected)
-        return False
+    if trip["arrival_times"][next_station] + timedelta(minutes=10) > trip["expected_arrival_time"][next_station]:   
+        has_delay = round(random.betavariate(2,5))
+        if has_delay == 1:
+            delay_quantity_in_minutes = random.randrange(0,10)
+            for i in range(next_station,len(trip["path"])):
+                new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=delay_quantity_in_minutes)
+                trip["expected_arrival_time"][i] = new_time_expected
+                trip["expected_departure_time"][i] = new_time_expected
+                if new_time_expected not in time_list:
+                    bisect.insort(time_list, new_time_expected)
+            return False
     trip["actual_arrival_time"].append(time)
     return True
 
-def has_every_train_arrived(active_trip, time, active_trips):
+def has_every_train_arrived(active_trip, time, active_trips, time_list):
     next_station = active_trip["next_station_index"]
     station_name = active_trip["path"][next_station] 
     trip_arrival_time = active_trip["actual_arrival_time"][-1]
-    for trip in active_trips:
-        if station_name not in trip["path"]:
-            continue
-        station_index = trip["path"].index(station_name)
-        expected_arrival_time = trip["arrival_times"][station_index]
-        trip_has_not_arrived = len(trip["actual_arrival_time"]) <= station_index
-        if trip_arrival_time >= expected_arrival_time and trip_has_not_arrived:
-            return False
+    if active_trip["arrival_times"][next_station] == trip_arrival_time:
+        for trip in active_trips:
+            if station_name not in trip["path"]:
+                continue
+            station_index = trip["path"].index(station_name)
+            expected_arrival_time = trip["arrival_times"][station_index]
+            # if time > expected_arrival_time:
+            #     continue
+            trip_has_not_arrived = len(trip["actual_arrival_time"]) < station_index
+            if trip_arrival_time >= expected_arrival_time and trip_has_not_arrived:
+                print(active_trip["path"])
+                print(next_station)
+                print(station_name)
+                return False
     if len(active_trip["actual_arrival_time"])-1 == next_station:
         active_trip["actual_departure_time"].append(time)
         active_trip["next_station_index"] += 1
