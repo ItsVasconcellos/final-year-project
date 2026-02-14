@@ -12,7 +12,9 @@ import sys
 trip_parquet_file_path = ".output/timetable/trips.parquet"
 time_list_file_path = ".output/timetable/timelist.parquet"
 
-def main():
+total_network_delay = 0
+
+def main(d_percentage, d_minutes):
     # atm no need for the railway network
     # railway_network = network.get_railway_graph()
 
@@ -62,12 +64,12 @@ def main():
     
     print("Finished trips")
     
-    for i, trip in enumerate(final_trip_list):
-        for i in range(0,len(trip["path"])):
-            if trip["expected_arrival_time"][i] != trip["actual_arrival_time"][i]:
-                print(trip["path"])
-                print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
-                print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
+    # for i, trip in enumerate(final_trip_list):
+    #     for i in range(0,len(trip["path"])):
+    #         if trip["expected_arrival_time"][i] != trip["actual_arrival_time"][i]:
+    #             print(trip["path"])
+    #             print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
+    #             print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
     print("Finished trips - " + str(len(final_trip_list)))
     print("Active trips")
     # for j,trip in enumerate(active_trips):
@@ -83,6 +85,7 @@ def main():
 
     print(len(time_list))
     print("Number of remaining: " + str(len(active_trips)))
+    print("Total delay in network (M) - " + str(total_network_delay))
     # save_trips(final_trip_list)
     
 def verify_new_trips(trips,time):
@@ -119,6 +122,8 @@ def move_to_next_station(trip, time, time_list):
         has_delay = round(random.betavariate(2,5))
         if has_delay == 1:
             delay_quantity_in_minutes = random.randrange(0,10)
+            global total_network_delay
+            total_network_delay += delay_quantity_in_minutes
             for i in range(next_station,len(trip["path"])):
                 new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=delay_quantity_in_minutes)
                 trip["expected_arrival_time"][i] = new_time_expected
@@ -143,9 +148,9 @@ def has_every_train_arrived(active_trip, time, active_trips, time_list):
             #     continue
             trip_has_not_arrived = len(trip["actual_arrival_time"]) < station_index
             if trip_arrival_time >= expected_arrival_time and trip_has_not_arrived:
-                print(active_trip["path"])
-                print(next_station)
-                print(station_name)
+                # print(active_trip["path"])
+                # print(next_station)
+                # print(station_name)
                 return False
     if len(active_trip["actual_arrival_time"])-1 == next_station:
         active_trip["actual_departure_time"].append(time)
@@ -157,4 +162,14 @@ def save_simulation():
         os.mkdir(".output")
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("delay_percentage", help="Percentage of trips that will have delay", type=int)
+    parser.add_argument("delay_minutes", help="How many minutes a single delayed trip should be delayed", type=int)
+    args = parser.parse_args()
+    if args.delay_percentage < 0 or args.delay_percentage > 100:
+        raise argparse.ArgumentError("The percentage must be a valid integer number between 0 and 100")
+    if args.delay_minutes <=0:
+        raise argparse.ArgumentError("The trip cannot be delayed by negative minutes.")
+
+    main(args.delay_percentage, args.delay_minutes)
