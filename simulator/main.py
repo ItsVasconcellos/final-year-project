@@ -26,7 +26,8 @@ def main(d_percentage, d_minutes):
     time_list = []
     for trip in trips.to_pylist():
         for o in range(0,len(trip["path"])):
-            time_list.append(trip["arrival_times"][o])
+            if trip["arrival_times"][o] not in time_list:
+                time_list.append(trip["arrival_times"][o])
     time_list.sort()
     # List of active_trips (live trips) and final trips (trips that have ended)
     active_trips:list[dict] = []
@@ -71,20 +72,22 @@ def main(d_percentage, d_minutes):
     print("Finished trips - " + str(len(final_trip_list)))
     print(time_list[i-1])
     
-    # for i, trip in enumerate(final_trip_list):
-    #     print(trip["path"])
-    #     print(" - size: " + str(len(trip["path"])))
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
+    for i, trip in enumerate(final_trip_list):
+        print(trip["path"])
+        print(" - size: " + str(len(trip["path"])))
+        print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
     # print("Active trips")
-    # for j,trip in enumerate(active_trips):
-    #     if j > 50: break
-    #     print(trip["path"])
-    #     print(" - size: " + str(len(trip["path"])))
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
+    for j,trip in enumerate(active_trips):
+
+        print(trip["path"])
+        print(" - size: " + str(len(trip["path"])))
+        print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
     #     if active_trips:
     #         input()
     #         print(time_list[i])
@@ -107,7 +110,9 @@ def add_new_trips(new_trips, active_trips, time):
         trip["expected_departure_time"] = trip["departure_times"].copy()
         trip["actual_arrival_time"] = [time]
         trip["actual_departure_time"] = []
-        has_every_train_arrived(active_trip=trip,time=time,active_trips=active_trips,time_list=[])
+        result = has_every_train_arrived(active_trip=trip,time=time,active_trips=active_trips,time_list=[])
+        print(result)
+        print(trip["actual_departure_time"])
         active_trips.append(trip)
 
 def is_last_station(active_trip,time):
@@ -136,14 +141,16 @@ def move_to_next_station(trip, time, time_list,d_min, d_percent):
     next_station = trip["next_station_index"]
     time_to_arrive_next_station = trip["expected_arrival_time"][next_station]
     # Check if train is supposed to arrive at the station, if not return false
-    if time < time_to_arrive_next_station:
+    arrivals = len(trip["actual_arrival_time"])
+    departures = len(trip["actual_departure_time"])
+    if time < time_to_arrive_next_station or arrivals != departures:
         return False
     # Create a small amount of trips with delay. This distribution is more likely prone to numbers that will be round to 0, therefore no delay.
     # if trip["arrival_times"][next_station] + timedelta(minutes=10) > trip["expected_arrival_time"][next_station]:   
         # has_delay = round(random.randrange(1,10))
         # if has_delay == 9:
         #     print("Test")
-    if trip["path"][next_station] == "TRI" and trip["arrival_times"][next_station] + timedelta(minutes=10) > trip["expected_arrival_time"][next_station]: 
+    if trip["path"][next_station] == "EUS" and trip["arrival_times"][next_station] + timedelta(minutes=10) > trip["expected_arrival_time"][next_station]: 
         global total_network_delay
         total_network_delay += d_min
         for i in range(next_station,len(trip["path"])):
@@ -162,27 +169,45 @@ def move_to_next_station(trip, time, time_list,d_min, d_percent):
 def has_every_train_arrived(active_trip, time, active_trips, time_list):
     # Get the station it is located atm
     next_station  = active_trip["next_station_index"]
+
+    # Station we want to verify if its able to arrive
     actual_station = next_station-1
+    # Name of the station
     station_name = active_trip["path"][actual_station] 
+    # Real time of arrival
     trip_arrival_time = active_trip["actual_arrival_time"][-1]
-    if active_trip["arrival_times"][actual_station] == trip_arrival_time:
-        for trip in active_trips:
-            if station_name not in trip["path"]:
-                continue
-            station_index = trip["path"].index(station_name)
-            expected_arrival_time = trip["arrival_times"][station_index]
-            # if time > expected_arrival_time:
-            #     continue
-            trip_has_not_arrived = len(trip["actual_arrival_time"]) < station_index
-            if trip_arrival_time >= expected_arrival_time and trip_has_not_arrived:
-                # print(active_trip["path"])
-                # print(actual_station)
-                # print(station_name)
-                return False
+    # Verify amongst the trips that are active
+    for trip in active_trips:
+        # Don't compare to itself
+        if trip["id"] == active_trip["id"]:
+            continue
+        # If the station is not on the trip, we should not bother
+        if station_name not in trip["path"]:
+            continue
+        # Index 
+        station_index = trip["path"].index(station_name)
+        expected_arrival_time = trip["arrival_times"][station_index]
+        trip_has_arrived = trip["next_station_index"] > station_index
+        # print(len(trip["actual_arrival_time"]))
+        # print(trip["path"])
+        # If the arrival time of the active_trip was previous to the expected time of the trip being compared, it means nobody could get a connection from a to b. Therefore, not a valid case. 
+        if trip_arrival_time <= expected_arrival_time:
+            continue
+        if trip_has_arrived:
+            print(trip["id"])
+            print(active_trip["id"])
+            print("Has trip arrived:" + str(trip_has_arrived))
+
+            print(str(actual_station) + " - " + str(station_name))
+            return False
     if len(active_trip["actual_arrival_time"]) == next_station and len(active_trip["actual_arrival_time"]) != len(active_trip["actual_departure_time"]):
-        print("Len Arrival:" + str(len(active_trip["actual_arrival_time"])) + " Next:" + str(next_station))
+        # print("Len Arrival:" + str(len(active_trip["actual_arrival_time"])) + " Next:" + str(next_station))
+        # if station_name == "EUS":
+        #     print(active_trip)
         active_trip["actual_departure_time"].append(time)
+        # adjust_expected_time(active_trip, time)
     return True
+
 
 def save_simulation():
     if not os.path.exists(os.path.join(os.getcwd(), '.output')):
