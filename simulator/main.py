@@ -39,7 +39,7 @@ def main(d_percentage, d_minutes):
         # Verifying if any trip has started 
         new_trips = verify_new_trips(trips=trips,time=time_list[i])
         # Call function to add trips
-        add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_list[i])
+        add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_list[i], time_list=time_list)
         print(time_list[i].strftime('%D-%H:%M'))
         # Looping through the active trips and moving to the next station if it arrived
         for trip in active_trips[:]:
@@ -103,14 +103,14 @@ def verify_new_trips(trips,time):
     mask = pc.equal(trips["first_departure"],time)
     return trips.filter(mask).to_pylist()
 
-def add_new_trips(new_trips, active_trips, time):
+def add_new_trips(new_trips, active_trips, time, time_list):
     for trip in new_trips:
         trip["next_station_index"] = 1
         trip["expected_arrival_time"] = trip["arrival_times"].copy()
         trip["expected_departure_time"] = trip["departure_times"].copy()
         trip["actual_arrival_time"] = [time]
         trip["actual_departure_time"] = []
-        result = has_every_train_arrived(active_trip=trip,time=time,active_trips=active_trips,time_list=[])
+        result = has_every_train_arrived(active_trip=trip,time=time,active_trips=active_trips,time_list=time_list)
         print(result)
         print(trip["actual_departure_time"])
         active_trips.append(trip)
@@ -194,20 +194,28 @@ def has_every_train_arrived(active_trip, time, active_trips, time_list):
         if trip_arrival_time <= expected_arrival_time:
             continue
         if trip_has_arrived:
-            print(trip["id"])
-            print(active_trip["id"])
-            print("Has trip arrived:" + str(trip_has_arrived))
-
-            print(str(actual_station) + " - " + str(station_name))
             return False
     if len(active_trip["actual_arrival_time"]) == next_station and len(active_trip["actual_arrival_time"]) != len(active_trip["actual_departure_time"]):
         # print("Len Arrival:" + str(len(active_trip["actual_arrival_time"])) + " Next:" + str(next_station))
         # if station_name == "EUS":
         #     print(active_trip)
         active_trip["actual_departure_time"].append(time)
-        # adjust_expected_time(active_trip, time)
+        if time != active_trip["expected_departure_time"][actual_station]:
+            adjust_expected_time(active_trip, time, next_station, time_list)
     return True
 
+def adjust_expected_time(active_trip, time, next_station, time_list):
+    print("beta")
+    delta = time
+    for i in range(next_station,len(active_trip["path"])):
+            delta += active_trip["arrival_times"][i] - active_trip["arrival_times"][i-1] 
+            new_time_expected = delta
+            active_trip["expected_arrival_time"][i] = new_time_expected
+            active_trip["expected_departure_time"][i] = new_time_expected
+            if new_time_expected not in time_list:
+                bisect.insort(time_list, new_time_expected)
+                print(new_time_expected.strftime("%H:%M"))
+                print("Oi")
 
 def save_simulation():
     if not os.path.exists(os.path.join(os.getcwd(), '.output')):
