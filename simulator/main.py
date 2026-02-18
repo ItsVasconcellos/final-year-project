@@ -5,7 +5,7 @@ import pyarrow.compute as pc
 from datetime import datetime,timedelta
 import bisect 
 import os
-import sys
+# import sys
 # from mockdata import trips
 
 trip_parquet_file_path = ".output/timetable/trips.parquet"
@@ -44,17 +44,6 @@ def main(d_percentage, d_minutes):
         # Looping through the active trips and moving to the next station if it arrived
         for trip in active_trips[:]:
             # can_go_to_next_station = has_every_train_arrived(active_trip=trip, active_trips=active_trips, time=time_list[i], time_list=time_list)
-            # print(trip["path"])
-            # # print([date_obj.strftime('%H-%M') for date_obj in trip["arrivals_time"]])
-            # # print([date_obj.strftime('%H-%M') for date_obj in trip["departures_time"]])
-            # print([date_obj.strftime('%H-%M') for date_obj in trip["expected_arrival_time"]])
-            # print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])                
-            # print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
-            # print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
-            # input()
-            # If all previous trains to that station have arrived, the train will departure
-            # if not can_go_to_next_station:
-            #     continue
             move_to_next_station(trip=trip, time=time_list[i], time_list=time_list, d_min=d_minutes, d_percent=d_percentage)
             #Verify if trip has ended
             is_trip_over = is_last_station(active_trip=trip, time=time_list[i])
@@ -64,6 +53,7 @@ def main(d_percentage, d_minutes):
                 trip_ended = active_trips.pop(int(index))
                 final_trip_list.append(trip_ended)
                 continue
+            # If all previous trains to that station have arrived, the train will departure
             has_every_train_arrived(active_trip=trip, active_trips=active_trips, time=time_list[i], time_list=time_list)
         i+=1
 
@@ -129,7 +119,7 @@ def is_last_station(active_trip,time):
         return True
     return False
 
-# Define parameters for percenatge of trip that has delay and the length of delay
+# Define parameters for percenatge of trip that has delay and the length of delay - Half done
 # Counter for total delay on network - DONE
 # Shifting focus to the london subway network - Are we sure? 
 def move_to_next_station(trip, time, time_list,d_min, d_percent):
@@ -150,10 +140,6 @@ def move_to_next_station(trip, time, time_list,d_min, d_percent):
     if time < time_to_arrive_next_station or arrivals != departures:
         return False
     # Create a small amount of trips with delay. This distribution is more likely prone to numbers that will be round to 0, therefore no delay.
-    # if trip["arrival_times"][next_station] + timedelta(minutes=10) > trip["expected_arrival_time"][next_station]:   
-        # has_delay = round(random.randrange(1,10))
-        # if has_delay == 9:
-        #     print("Test")
     if trip["path"][next_station] == "SOH" and trip["arrival_times"][next_station] + timedelta(minutes=2) > trip["expected_arrival_time"][next_station]: 
         global total_network_delay
         total_network_delay += d_min
@@ -164,7 +150,6 @@ def move_to_next_station(trip, time, time_list,d_min, d_percent):
             if new_time_expected not in time_list:
                 bisect.insort(time_list, new_time_expected)
                 print(new_time_expected.strftime("%H:%M"))
-                print("Oi")
         return False 
     trip["actual_arrival_time"].append(time)
     trip["next_station_index"] += 1
@@ -191,19 +176,13 @@ def has_every_train_arrived(active_trip, time, active_trips, time_list):
         station_index = trip["path"].index(station_name)
         original_trip2_arrival_time = trip["arrival_times"][station_index]
         trip_has_arrived = trip["next_station_index"] > station_index
-        # print(len(trip["actual_arrival_time"]))
-        # print(trip["path"])
         # If the arrival time of the active_trip was previous to the expected time of the trip being compared, it means nobody could get a connection from a to b. Therefore, not a valid case. 
         if arrival_time <= original_trip2_arrival_time:
             continue
         if not trip_has_arrived:
-            # print(trip["path"])
             print("Trip yet to arrive:" + str(trip["id"]) + " - trip that will be delayed: " + str(active_trip["id"]) + " - Time as of now: " + time.strftime("%H:%M") + " - tA: " + arrival_time.strftime("%H:%M") + " - expectedA: " + original_trip2_arrival_time.strftime("%H:%M") )
             return False
     if len(active_trip["actual_arrival_time"]) == next_station and len(active_trip["actual_arrival_time"]) != len(active_trip["actual_departure_time"]):
-        # print("Len Arrival:" + str(len(active_trip["actual_arrival_time"])) + " Next:" + str(next_station))
-        # if station_name == "EUS":
-        #     print(active_trip)
         active_trip["actual_departure_time"].append(time)
         if time != active_trip["expected_departure_time"][actual_station]:
             adjust_expected_time(active_trip, time, next_station, time_list)
