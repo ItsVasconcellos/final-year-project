@@ -6,33 +6,43 @@ from datetime import datetime,timedelta
 import bisect 
 import os
 # import sys
-# from mockdata import trips
+from mockdata import trips
 
 trip_parquet_file_path = ".output/timetable/trips.parquet"
 time_list_file_path = ".output/timetable/timelist.parquet"
 
-total_network_delay = 0
+total_delay_generated = 0
+total_delay_propagated_in_network = 0
 
 def main(d_percentage, d_minutes):
-    # atm no need for the railway network
+    """
+    Docstring for main
+    
+    :param d_percentage: the delay percentage that will be used 
+    :param d_minutes: Description
+    """
+    # Atm no need for the railway network
+    
     # railway_network = network.get_railway_graph()
 
-    # Load the parquet file that contains all the trips
+    # Load trips and time_list (just first index because its a one-column file) from parquet files and convert from py_arrow to a python list
     trips = pq.read_table(trip_parquet_file_path)
-    # Read the parquet file which contains all the times in a unique column. That's why just using the first index.
-    # time_list = pq.read_table(time_list_file_path)[0]
-    # # convert from py_arrow timestamp to datetime
-    # time_list = [x.as_py() for x in time_list]
-    time_list = []
-    for trip in trips.to_pylist():
-        for o in range(0,len(trip["path"])):
-            if trip["arrival_times"][o] not in time_list:
-                time_list.append(trip["arrival_times"][o])
-    time_list.sort()
+    time_list = pq.read_table(time_list_file_path)[0]
+    time_list = [x.as_py() for x in time_list]
+    
+    # Alternative to get the time_list if using mock data
+    # time_list = []
+    # for trip in trips.to_pylist():
+    #     for o in range(0,len(trip["path"])):
+    #         if trip["arrival_times"][o] not in time_list:
+    #             time_list.append(trip["arrival_times"][o])
+    # time_list.sort()
+
     # List of active_trips (live trips) and final trips (trips that have ended)
     active_trips:list[dict] = []
     final_trip_list:list[dict] = []
     print("Total number of trips: " + str(len(trips)))
+    
     # Iterate through all the time_list available
     i = 0
     while i < len(time_list):
@@ -40,7 +50,6 @@ def main(d_percentage, d_minutes):
         new_trips = verify_new_trips(trips=trips,time=time_list[i])
         # Call function to add trips
         add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_list[i], time_list=time_list)
-        # print(time_list[i].strftime('%D-%H:%M'))
         # Looping through the active trips and moving to the next station if it arrived
         for trip in active_trips[:]:
             # can_go_to_next_station = has_every_train_arrived(active_trip=trip, active_trips=active_trips, time=time_list[i], time_list=time_list)
@@ -58,9 +67,7 @@ def main(d_percentage, d_minutes):
         i+=1
 
     # Debugging prints 
-    print("Finished trips")
     print("Finished trips - " + str(len(final_trip_list)))
-    print(time_list[i-1])
     
     # for i, trip in enumerate(final_trip_list):
     #     print(trip["path"])
@@ -70,8 +77,8 @@ def main(d_percentage, d_minutes):
     #     print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])
     #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
     # # print("Active trips")
-    # for j,trip in enumerate(active_trips):
 
+    # for j,trip in enumerate(active_trips):
     #     print(trip["path"])
     #     print(" - size: " + str(len(trip["path"])))
     #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
@@ -83,9 +90,11 @@ def main(d_percentage, d_minutes):
     #         print(time_list[i])
 
 
-    print(len(final_trip_list))
+    print("Time simulation ended at " + time_list[i-1].strftime("%d/%m/%y - %H:%M"))
+    print("Total trips simulates that have ended:" + str(len(final_trip_list)))
     print("Number of remaining: " + str(len(active_trips)))
-    print("Total delay in network (M) - " + str(total_network_delay))
+    print("Total delay generated artificially in network (M) - " + str(total_delay_generated))
+    print("Total delay propagated in network (M) - " + str(total_delay_propagated_in_network))
     # save_trips(final_trip_list)
     
 def verify_new_trips(trips,time):
@@ -124,13 +133,11 @@ def is_last_station(active_trip,time):
 # Shifting focus to the london subway network - Are we sure? 
 def move_to_next_station(trip, time, time_list,d_min, d_percent):
     """
-    Docstring for move_to_next_station
-    
+    This function is responsible for checking if the train arrived in the next station and also generate some delay into the network    
     :param trip: Description
     :param time: Description
     :param time_list: Description
     :param d_min: Description
-    :param d_percent: Description
     """
     next_station = trip["next_station_index"]
     time_to_arrive_next_station = trip["expected_arrival_time"][next_station]
@@ -140,10 +147,12 @@ def move_to_next_station(trip, time, time_list,d_min, d_percent):
     if time < time_to_arrive_next_station or arrivals != departures:
         return False
     # Create a small amount of trips with delay. This distribution is more likely prone to numbers that will be round to 0, therefore no delay.
-    if trip["path"][next_station] == "SOH" and trip["arrival_times"][next_station] + timedelta(minutes=2) > trip["expected_arrival_time"][next_station]: 
-        global total_network_delay
-        total_network_delay += d_min
+    if trip["path"][next_station] == "EUS" and trip["arrival_times"][next_station] + timedelta(minutes=30) > trip["expected_arrival_time"][next_station]: 
+        global total_delay_generated, total_delay_propagated_in_network
+        total_delay_generated += d_min
+        total_delay_propagated_in_network += d_min
         for i in range(next_station,len(trip["path"])):
+            # print(trip["id"])
             new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=d_min)
             trip["expected_arrival_time"][i] = new_time_expected
             trip["expected_departure_time"][i] = new_time_expected
@@ -180,16 +189,25 @@ def has_every_train_arrived(active_trip, time, active_trips, time_list):
         if arrival_time <= original_trip2_arrival_time:
             continue
         if not trip_has_arrived:
-            print("Trip yet to arrive:" + str(trip["id"]) + " - trip that will be delayed: " + str(active_trip["id"]) + " - Time as of now: " + time.strftime("%H:%M") + " - tA: " + arrival_time.strftime("%H:%M") + " - expectedA: " + original_trip2_arrival_time.strftime("%H:%M") )
+            # print("Trip yet to arrive:" + str(trip["id"]) + " - trip that will be delayed: " + str(active_trip["id"]) + " - Time as of now: " + time.strftime("%H:%M") + " - tA: " + arrival_time.strftime("%H:%M") + " - expectedA: " + original_trip2_arrival_time.strftime("%H:%M") )
             return False
+    ### Verify if trip has already arrived at the station being verified and if it has not departed yet. If both of these are true, trip will departure
     if len(active_trip["actual_arrival_time"]) == next_station and len(active_trip["actual_arrival_time"]) != len(active_trip["actual_departure_time"]):
         active_trip["actual_departure_time"].append(time)
+        # In case the trip departured later than expected, the expected times will be adjusted to match this.
         if time != active_trip["expected_departure_time"][actual_station]:
             adjust_expected_time(active_trip, time, next_station, time_list)
     return True
 
 def adjust_expected_time(active_trip, time, next_station, time_list):
+    """
+    This function adjust times for delays due to departuring later than expected.
+    It will calculate how long the distance between two stations would normally take and adjust the sum to the value of departure (or expected departure in the case of future stations)
+    """
     delta = time
+    diff_in_departures = int((time - active_trip["expected_departure_time"][next_station-1]).total_seconds() // 60) 
+    global total_delay_propagated_in_network
+    total_delay_propagated_in_network += diff_in_departures
     for i in range(next_station,len(active_trip["path"])):
             delta += active_trip["arrival_times"][i] - active_trip["arrival_times"][i-1] 
             new_time_expected = delta
