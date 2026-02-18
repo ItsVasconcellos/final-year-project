@@ -30,6 +30,7 @@ def main():
 
 def save_files(timetable,list_of_times):
     schema = pa.schema([
+        ('id',pa.int64()),
         ('path', pa.list_(pa.string())),          
         ('distance', pa.float64()),               
         ('arrival_times', pa.list_(pa.timestamp("s"))), 
@@ -177,6 +178,12 @@ def create_timetable(timetable_routes: dict, railway_network: DiGraph) -> list[d
             arrival_time, departure_time = predict_times(start_time=start_time,total_time_trip=diff, railway_network=railway_network, path=path, distance=distance )
             arrival_time.append(datetime.timestamp(end_time))
             departure_time.append(datetime.timestamp(end_time))
+            # Just a test to aviod generating times that are not correct
+            for i in range(len(arrival_time)-2,len(arrival_time)-1):
+                if datetime.timestamp(time_addition(datetime.fromtimestamp((arrival_time[i])),1)) >= arrival_time[i+1]:
+                    print(i)
+                    print(path)
+                    print([datetime.fromtimestamp(date_obj).strftime('%H-%M') for date_obj in arrival_time])
             for a in arrival_time:
                 if a not in time_list_for_timetable:
                     time_list_for_timetable.append(a)
@@ -185,6 +192,7 @@ def create_timetable(timetable_routes: dict, railway_network: DiGraph) -> list[d
                     time_list_for_timetable.append(d)
 
             new_object = {
+                "id": len(timetable),
                 "distance": distance,
                 "path": path,
                 "arrival_times": arrival_time,
