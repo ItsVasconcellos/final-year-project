@@ -5,38 +5,23 @@ import pyarrow.compute as pc
 from datetime import datetime,timedelta
 import bisect 
 import os
+import random
 # import sys
-from mockdata import trips
-
 trip_parquet_file_path = ".output/timetable/trips.parquet"
 time_list_file_path = ".output/timetable/timelist.parquet"
 
 total_delay_generated = 0
 total_delay_propagated_in_network = 0
 
-def main(d_percentage, d_minutes):
+def main(d_percentage, d_minutes, type_data):
     """
     Docstring for main
     
     :param d_percentage: the delay percentage that will be used 
     :param d_minutes: Description
+    :param type_data: Defines if the simulation will use a small set of data (mock) or the actual timetable (real).
     """
-    # Atm no need for the railway network
-    
-    # railway_network = network.get_railway_graph()
-
-    # Load trips and time_list (just first index because its a one-column file) from parquet files and convert from py_arrow to a python list
-    trips = pq.read_table(trip_parquet_file_path)
-    time_list = pq.read_table(time_list_file_path)[0]
-    time_list = [x.as_py() for x in time_list]
-    
-    # Alternative to get the time_list if using mock data
-    # time_list = []
-    # for trip in trips.to_pylist():
-    #     for o in range(0,len(trip["path"])):
-    #         if trip["arrival_times"][o] not in time_list:
-    #             time_list.append(trip["arrival_times"][o])
-    # time_list.sort()
+    trips, time_list = get_data(type_data)
 
     # List of active_trips (live trips) and final trips (trips that have ended)
     active_trips:list[dict] = []
@@ -69,13 +54,13 @@ def main(d_percentage, d_minutes):
     # Debugging prints 
     print("Finished trips - " + str(len(final_trip_list)))
     
-    # for i, trip in enumerate(final_trip_list):
-    #     print(trip["path"])
-    #     print(" - size: " + str(len(trip["path"])))
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
+    for i, trip in enumerate(final_trip_list):
+        print(trip["path"])
+        print(" - size: " + str(len(trip["path"])))
+        print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])
+        print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
     # # print("Active trips")
 
     # for j,trip in enumerate(active_trips):
@@ -96,7 +81,25 @@ def main(d_percentage, d_minutes):
     print("Total delay generated artificially in network (M) - " + str(total_delay_generated))
     print("Total delay propagated in network (M) - " + str(total_delay_propagated_in_network))
     # save_trips(final_trip_list)
+
+def get_data(type_data):
+    if type_data == "real":
+        # Load trips and time_list (just first index because its a one-column file) from parquet files and convert from py_arrow to a python list
+        trips = pq.read_table(trip_parquet_file_path)
+        time_list = pq.read_table(time_list_file_path)[0]
+        time_list = [x.as_py() for x in time_list]
+        return trips, time_list    
+    # Alternative to get the time_list if using mock data
     
+    from mockdata import trips
+    time_list = []
+    for trip in trips.to_pylist():
+        for o in range(0,len(trip["path"])):
+            if trip["arrival_times"][o] not in time_list:
+                time_list.append(trip["arrival_times"][o])
+    time_list.sort()
+    return trips, time_list
+
 def verify_new_trips(trips,time):
     # Create a filter verifying if the first_departure matches with the time active and return the trips found in parquet file
     mask = pc.equal(trips["first_departure"],time)
@@ -147,13 +150,14 @@ def move_to_next_station(trip, time, time_list,d_min, d_percent):
     if time < time_to_arrive_next_station or arrivals != departures:
         return False
     # Create a small amount of trips with delay. This distribution is more likely prone to numbers that will be round to 0, therefore no delay.
-    if trip["path"][next_station] == "EUS" and trip["arrival_times"][next_station] + timedelta(minutes=30) > trip["expected_arrival_time"][next_station]: 
+    if trip["path"][next_station] == "EUS" and trip["arrival_times"][next_station] + timedelta(minutes=30) > trip["expected_arrival_time"][next_station]:
         global total_delay_generated, total_delay_propagated_in_network
-        total_delay_generated += d_min
-        total_delay_propagated_in_network += d_min
+        delay = random.randrange(0,d_min)
+        total_delay_generated += delay
+        total_delay_propagated_in_network += delay
         for i in range(next_station,len(trip["path"])):
             # print(trip["id"])
-            new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=d_min)
+            new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=delay)
             trip["expected_arrival_time"][i] = new_time_expected
             trip["expected_departure_time"][i] = new_time_expected
             if new_time_expected not in time_list:
@@ -226,10 +230,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("delay_percentage", help="Percentage of trips that will have delay", type=int)
     parser.add_argument("delay_minutes", help="How many minutes a single delayed trip should be delayed", type=int)
+    parser.add_argument("type_data", help="If you want to use real data or mocked data (simplified)", type=str, choices=["real","mock"])
     args = parser.parse_args()
     if args.delay_percentage < 0 or args.delay_percentage > 100:
         raise argparse.ArgumentError("The percentage must be a valid integer number between 0 and 100")
     if args.delay_minutes <=0:
         raise argparse.ArgumentError("The trip cannot be delayed by negative minutes.")
 
-    main(args.delay_percentage, args.delay_minutes)
+    main(args.delay_percentage, args.delay_minutes, args.type_data)
