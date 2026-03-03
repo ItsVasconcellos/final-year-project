@@ -46,7 +46,7 @@ def main(d_percentage, d_minutes, type_data):
         # Verifying if any trip has started 
         new_trips = verify_new_trips(trips=trips,time=time_list[i])
         # Call function to add trips
-        add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_list[i], time_list=time_list)
+        add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_list[i], time_list=time_list, delay_list=delay_list, d_min=d_minutes)
         # Looping through the active trips and moving to the next station if it arrived
         for trip in active_trips[:]:
             # can_go_to_next_station = has_every_train_arrived(active_trip=trip, active_trips=active_trips, time=time_list[i], time_list=time_list)
@@ -60,8 +60,9 @@ def main(d_percentage, d_minutes, type_data):
                 final_trip_list.append(trip_ended)
                 continue
             # If all previous trains to that station have arrived, the train will departure
-            can_depart = has_every_train_arrived(active_trip=trip, active_trips=active_trips, time=time_list[i], time_list=time_list)
-            if can_depart:
+            every_train_has_arrived = check_for_connections(active_trip=trip, active_trips=active_trips)
+            can_depart = check_departure(active_trip=trip)
+            if every_train_has_arrived and can_depart:
                 depart_trip(active_trip=trip,time=time_list[i], time_list=time_list)
                 check_delay(trip=trip,delay_list=delay_list, time_list=time_list, d_min=d_minutes)
         i+=1
@@ -146,20 +147,26 @@ def verify_new_trips(trips,time):
     mask = pc.equal(trips["first_departure"],time)
     return trips.filter(mask).to_pylist()
 
-def add_new_trips(new_trips, active_trips, time, time_list):
+def add_new_trips(new_trips, active_trips, time, time_list, delay_list, d_min):
     for trip in new_trips:
         trip["next_station_index"] = 1
         trip["expected_arrival_time"] = trip["arrival_times"].copy()
         trip["expected_departure_time"] = trip["departure_times"].copy()
         trip["actual_arrival_time"] = [time]
         trip["actual_departure_time"] = []
-        result = has_every_train_arrived(active_trip=trip,time=time,active_trips=active_trips,time_list=time_list)
-        # print(result)
-        # print(trip["actual_departure_time"])
-        # if not result:
-        #     for active_t in active_trips:
-        #         next_station = active_t["next_station_index"]
-        #         print(active_t["path"][next_station])
+        if 0 in delay_list[trip["id"]]: 
+            global total_delay_generated, total_delay_propagated_in_network
+            delay = random.randrange(0,d_min)
+            print("Delay generated: " + str(delay) +  " - next station: " + str(0))
+            total_delay_generated += delay
+            total_delay_propagated_in_network += delay
+            for i in range(0,len(trip["path"])):
+                new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=delay)
+                trip["expected_arrival_time"][i] = new_time_expected
+                trip["expected_departure_time"][i] = new_time_expected
+                trip["has_delay"] = True
+                if new_time_expected not in time_list:
+                    bisect.insort(time_list, new_time_expected)
         active_trips.append(trip)
 
 def is_last_station(active_trip,time):
@@ -193,7 +200,7 @@ def move_to_next_station(trip, time):
     trip["next_station_index"] += 1
     return True
 
-def has_every_train_arrived(active_trip, time, active_trips, time_list):
+def check_for_connections(active_trip, active_trips):
     """
     Returns false if there is a pending trip for the current station
     Return true if all trips have arrived
@@ -226,15 +233,20 @@ def has_every_train_arrived(active_trip, time, active_trips, time_list):
             return False
     return True
 
+def check_departure(active_trip):
+    next_station  = active_trip["next_station_index"]
+    ### Verify if trip has already arrived at the station being verified and if it has not departed yet. If both of these are true, trip will departure
+    if len(active_trip["actual_arrival_time"]) == next_station and len(active_trip["actual_arrival_time"]) != len(active_trip["actual_departure_time"]):
+        return True
+    return False
+
 def depart_trip(active_trip, time, time_list):
     next_station  = active_trip["next_station_index"]
     actual_station = next_station - 1
-    ### Verify if trip has already arrived at the station being verified and if it has not departed yet. If both of these are true, trip will departure
-    if len(active_trip["actual_arrival_time"]) == next_station and len(active_trip["actual_arrival_time"]) != len(active_trip["actual_departure_time"]):
-        active_trip["actual_departure_time"].append(time)
-        # In case the trip departured later than expected, the expected times will be adjusted to match this.
-        if time != active_trip["expected_departure_time"][actual_station]:
-            adjust_expected_time(active_trip, time, next_station, time_list)
+    active_trip["actual_departure_time"].append(time)
+    # In case the trip departured later than expected, the expected times will be adjusted to match this.
+    if time != active_trip["expected_departure_time"][actual_station]:
+        adjust_expected_time(active_trip, time, next_station, time_list)
 
 def check_delay(trip, delay_list, time_list, d_min):
     next_station = trip["next_station_index"]
