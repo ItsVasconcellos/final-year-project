@@ -19,7 +19,7 @@ def extract_routes(req):
     if req == None:
         return []
     for item in req:
-        key = item["name"]
+        key = item["id"]
         routes[key] = [] 
         if not item.get("routeSections"):
             log.warning("Line found does not contain any active route")
