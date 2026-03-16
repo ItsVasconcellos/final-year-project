@@ -8,8 +8,8 @@ import os
 import random
 from collections import defaultdict
 
-trip_parquet_file_path = ".output/timetable/trips.parquet"
-time_list_file_path = ".output/timetable/timelist.parquet"
+trip_parquet_file_path = ".output/timetable2/trips.parquet"
+time_list_file_path = ".output/timetable2/timelist.parquet"
 
 total_delay_generated = 0
 total_delay_propagated_in_network = 0
@@ -33,7 +33,6 @@ def main(d_percentage, d_minutes, type_data):
 
     # Define which stations will be delayed
     delay_list = random_delay_stations(trips, percent=d_percentage)
-    
 
     # List of active_trips (live trips) and final trips (trips that have ended)
     active_trips:list[dict] = []
@@ -43,16 +42,17 @@ def main(d_percentage, d_minutes, type_data):
     # Iterate through all the time_list available
     i = 0
     while i < len(time_list):
+        time_now = time_list[i]
         # Verifying if any trip has started 
-        new_trips = verify_new_trips(trips=trips,time=time_list[i])
+        new_trips = verify_new_trips(trips=trips,time=time_now)
         # Call function to add trips
-        add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_list[i], time_list=time_list, delay_list=delay_list, d_min=d_minutes)
+        add_new_trips(new_trips=new_trips, active_trips=active_trips, time=time_now, time_list=time_list, delay_list=delay_list, d_min=d_minutes)
         # Looping through the active trips and moving to the next station if it arrived
         for trip in active_trips[:]:
             # can_go_to_next_station = has_every_train_arrived(active_trip=trip, active_trips=active_trips, time=time_list[i], time_list=time_list)
-            move_to_next_station(trip=trip, time=time_list[i])
+            move_to_next_station(trip=trip, time=time_now)
             #Verify if trip has ended
-            is_trip_over = is_last_station(active_trip=trip, time=time_list[i])
+            is_trip_over = is_last_station(active_trip=trip, time=time_now)
             # If the trips was on the last station and succesfully arrived at the last station, remove it from the active trips
             if is_trip_over:
                 index = active_trips.index(trip)
@@ -60,24 +60,26 @@ def main(d_percentage, d_minutes, type_data):
                 final_trip_list.append(trip_ended)
                 continue
             # If all previous trains to that station have arrived, the train will departure
-            every_train_has_arrived = check_for_connections(active_trip=trip, active_trips=active_trips)
             can_depart = check_departure(active_trip=trip)
-            if every_train_has_arrived and can_depart:
-                depart_trip(active_trip=trip,time=time_list[i], time_list=time_list)
-                check_delay(trip=trip,delay_list=delay_list, time_list=time_list, d_min=d_minutes)
+            if can_depart:
+                every_train_has_arrived = check_for_connections(active_trip=trip, active_trips=active_trips)
+                if every_train_has_arrived:
+                    depart_trip(active_trip=trip,time=time_now, time_list=time_list)
+                    check_delay(trip=trip,delay_list=delay_list, time_list=time_list, d_min=d_minutes)
+        # print(i)
+        # print(time_list[i])
         i+=1
 
     # Debugging prints 
-    print("Finished trips - " + str(len(final_trip_list)))
+    # print("Finished trips - " + str(len(final_trip_list)))
     
-    for i, trip in enumerate(final_trip_list):
-        print(trip["path"])
-        print(" - size: " + str(len(trip["path"])) + " ID: " + str(trip["id"]))
-        print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
-        print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
-        print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])
-        print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
-    print(delay_list)
+    # for i, trip in enumerate(final_trip_list):
+    #     print(trip["path"])
+    #     print(" - size: " + str(len(trip["path"])) + " ID: " + str(trip["id"]))
+    #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
+    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
+    #     print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])
+    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
     # # print("Active trips")
 
     # for j,trip in enumerate(active_trips):
@@ -157,7 +159,6 @@ def add_new_trips(new_trips, active_trips, time, time_list, delay_list, d_min):
         if 0 in delay_list[trip["id"]]: 
             global total_delay_generated, total_delay_propagated_in_network
             delay = random.randrange(0,d_min)
-            print("Delay generated: " + str(delay) +  " - next station: " + str(0))
             total_delay_generated += delay
             total_delay_propagated_in_network += delay
             for i in range(0,len(trip["path"])):
@@ -224,10 +225,10 @@ def check_for_connections(active_trip, active_trips):
         # Index 
         station_index = trip["path"].index(station_name)
         original_trip2_arrival_time = trip["arrival_times"][station_index]
-        trip_has_arrived = trip["next_station_index"] > station_index
         # If the arrival time of the active_trip was previous to the expected time of the trip being compared, it means nobody could get a connection from a to b. Therefore, not a valid case. 
         if arrival_time <= original_trip2_arrival_time:
             continue
+        trip_has_arrived = trip["next_station_index"] > station_index
         if not trip_has_arrived:
             # print("Trip yet to arrive:" + str(trip["id"]) + " - trip that will be delayed: " + str(active_trip["id"]) + " - Time as of now: " + time.strftime("%H:%M") + " - tA: " + arrival_time.strftime("%H:%M") + " - expectedA: " + original_trip2_arrival_time.strftime("%H:%M") )
             return False
@@ -253,11 +254,10 @@ def check_delay(trip, delay_list, time_list, d_min):
     if next_station in delay_list[trip["id"]]: 
         global total_delay_generated, total_delay_propagated_in_network
         delay = random.randrange(0,d_min)
-        print("Delay generated: " + str(delay) +  " - next station: " + str(next_station))
         total_delay_generated += delay
         total_delay_propagated_in_network += delay
         for i in range(next_station,len(trip["path"])):
-            new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=delay)
+            new_time_expected = trip["expected_arrival_time"][i] + timedelta(minutes=delay)
             trip["expected_arrival_time"][i] = new_time_expected
             trip["expected_departure_time"][i] = new_time_expected
             trip["has_delay"] = True
