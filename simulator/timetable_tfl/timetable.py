@@ -12,7 +12,7 @@ import time
 def get_timetable_for_route(line, route):
     origin = route[0]
     dest = route[1]
-    inbound = requests.get("https://api.tfl.gov.uk/Line/"+ line + "/Timetable/" + origin +  "/to/" + dest)
+    inbound = requests.get("https://api.tfl.gov.uk/Line/" + line + "/Timetable/" + origin +  "/to/" + dest)
     time.sleep(1)
     return inbound.json()
 
@@ -44,7 +44,7 @@ def extract_path(req):
 def time_addition(start, quantity):
     return (start + timedelta(minutes=quantity))
 
-def extract_stations_and_intervals(req_timetable):
+def extract_stations_and_intervals(req_timetable, st):
     if req_timetable == None:
         log.warning("Timetable not found")
         return []
@@ -65,6 +65,9 @@ def extract_stations_and_intervals(req_timetable):
         for i in intervals:
             interval_between_stations.append(i["timeToArrival"])
             stations.append(i["stopId"])
+            if not st.get(i["stopId"]):
+                x = str(i["stopId"])
+                st[x] = x
         routes[id]["stations"] = stations
         routes[id]["time_diff"] = interval_between_stations
     return routes
@@ -72,13 +75,15 @@ def extract_stations_and_intervals(req_timetable):
 def extract_start_times(time_list, req_timetable):
     req_routes = req_timetable["routes"]
     schedules = req_routes[0]["schedules"]
+    if schedules == None:
+        print("Schedueles None")
     journey_list = []
     for s in schedules:
         base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        if s["name"] != "Monday - Friday":
+        if not str(s["name"]).startswith("Monday"):
             continue
-        journey_dict ={}
         for j in s["knownJourneys"]: 
+            journey_dict ={}
             date_now = base_date + timedelta(hours=int(j["hour"]), minutes=int(j["minute"]))
             journey_dict["start"] = date_now
             journey_dict["route"] = str(j["intervalId"])
@@ -87,6 +92,22 @@ def extract_start_times(time_list, req_timetable):
             journey_list.append(journey_dict)
     return journey_list
 
+def compare_routes(journey, routes):
+    used_routes = {}
+    counter = 0
+    c2 =0
+    for j in journey:
+        if not used_routes.get(j["route"]):
+            print(j["route"])
+            used_routes[j["route"]] = 1
+    for r in routes:
+        print("Rotas" + str(r))
+        if not used_routes.get(r):
+            counter+=1
+            continue
+        c2+=1
+    return counter, c2
+
 def create_trip_times(journey_list,routes, time_list):
     final_trips = []
     for journey in journey_list:
@@ -94,7 +115,7 @@ def create_trip_times(journey_list,routes, time_list):
         log.info("Route id: " + str(id_route))
         route = routes[id_route]
         new_time = journey["start"]
-        
+
         trip={}
         trip["path"] = route["stations"]
         trip["arrival_time"] = [new_time]
@@ -151,23 +172,29 @@ if __name__ == "__main__":
     list_routes = RouteService.main()
     final_timetable = []
     time_list = []
+    st = {}
+    diff_routes = 0
+    routes_used = 0 
     trip_id = 0
     count_routes= 0
     count_journey = 0
     for name, route in list_routes.items():
+        print("\n")
+        print(name)
         for r in route:
             raw_timetable = get_timetable_for_route(name, r)
             if not raw_timetable.get("timetable"):
                 log.warning("timetable not found: ")
-                print(raw_timetable)
-                print("\n")
                 continue
             req_timetable = raw_timetable.get("timetable")
-            path_with_intervals = extract_stations_and_intervals(req_timetable=req_timetable)
+            path_with_intervals = extract_stations_and_intervals(req_timetable=req_timetable, st=st)
             if len(path_with_intervals) == 0:
                 continue
             count_routes+= len(path_with_intervals)
             journey_list = extract_start_times(time_list=time_list,req_timetable= req_timetable)
+            d,u= compare_routes(journey_list, path_with_intervals)
+            diff_routes += d
+            routes_used += u
             count_journey += len(journey_list)
             trips = create_trip_times(journey_list=journey_list, routes=path_with_intervals, time_list=time_list)
             # create_trips = extract_path(raw_timetable)
@@ -177,5 +204,8 @@ if __name__ == "__main__":
     print(trip_id)
     print(count_routes) 
     print(count_journey)
+    print(len(st))
+    print("Routes not being used:" + str(diff_routes))
+    print("Routes being used:" + str(routes_used))
     # save in parquet
     
