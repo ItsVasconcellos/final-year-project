@@ -1,18 +1,15 @@
-import requests
-import json
 import lines as l
 import pyarrow.parquet as pq
 import pyarrow.compute as pc
 import pyarrow as pa
 import networkx as nx
-from networkx import DiGraph
 import haversine as hs   
 from haversine import Unit
-import plotly.graph_objects as go
-
+from netgraph import InteractiveGraph # or just Graph for static
+import matplotlib.pyplot as plt
 
 def get_timetable():
-    trip_parquet_file_path = ".output/timetable2/trips.parquet"
+    trip_parquet_file_path = ".output/timetable_tfl/trips.parquet"
     trips = pq.read_table(trip_parquet_file_path)
     return trips
 
@@ -27,21 +24,28 @@ def get_routes(timetable):
     # 4. Convert back to a PyArrow Array
     return pa.array(unique_tuples)
 
-def get_unique_stations(timetable):
-    return pc.unique(pc.list_flatten(timetable["path"]))
+def get_unique_stations(routes):
+    stations = {}
+    for r in routes:
+        for s in r:
+            if stations.get(s):
+                continue
+            stations[s] = 1
+    return stations
 
-def get_stations(line:str):
-    inbound = requests.get("https://api.tfl.gov.uk/Line/"+ line + "/StopPoints")
-    return inbound.json()
+def get_stations():
+    stations_parque_file_path = ".output/timetable_tfl/stations.parquet"
+    stations = pq.read_table(stations_parque_file_path).to_pylist()
+    stations = {str(s["id"]): s for s in stations}
+    return stations
 
-def create_station(stations, r_inbound):
-    for station in r_inbound:
-        station_dict = {}
-        id_station = station["stationNaptan"]
-        station_dict["lat"] = station["lat"]
-        station_dict["lon"] = station["lon"]
-        station_dict["name"] = station["commonName"]
-        stations[id_station] = station_dict
+def match_stations(all_stations, timetable_stations):
+    stations = {}
+    for s in timetable_stations:
+        s = str(s)
+        station = all_stations.get(s)
+        stations[s] = station
+    return stations
 
 def get_distance(station, station_to):
     loc_station1 = (station["lat"],station["lon"])
@@ -54,27 +58,22 @@ def get_distance(station, station_to):
 
 def main():
     # Create the graph
-    graph = nx.DiGraph()    
+    graph = nx.graph.Graph() 
     
     # Get timetable and extract the routes available in the timetable
     timetable = get_timetable()
     routes = get_routes(timetable)
 
     # Extract unique stations from the paths and create its nodes
-    unique_stations = get_unique_stations(timetable) 
+    timetable_stations = get_unique_stations(routes) 
+    # print(len(paths))
+    all_stations = get_stations()
 
-    # Extract all stations using the london tfl api 
-    stations = {}
-    lines = l.get_lines()
-    for line in lines:
-        r_inbound = get_stations(line["name"])
-        if len(r_inbound) == 0:
-            continue
-        save_station = create_station(stations,r_inbound)
+    stations_used = match_stations(all_stations=all_stations, timetable_stations=timetable_stations)
 
     # Add station name to the graph
-    for s in unique_stations:
-        s_name = stations[str(s)]["name"]
+    for s in stations_used:
+        s_name = stations_used[str(s)]["name"]
         graph.add_node(s_name)
 
     edges_list = []
@@ -82,13 +81,18 @@ def main():
         for i in range(0,len(path)-1):
             s_from = str(path[i])
             s_to = str(path[i+1])
-            station_from = stations[s_from]
-            station_to = stations[s_to]
+            if s_from == s_to:
+                print(path)
+                print("self loop from " + str(s_from) + " to" + str(s_to))
+                continue
+            station_from = stations_used[s_from]
+            station_to = stations_used[s_to]
             weight = get_distance(station_from,station_to)
             edges_list.append([station_from["name"],station_to["name"],{"weight": weight}])
             
     # Create edges
     graph.add_edges_from(edges_list)
+    return graph
     # return graph
-    
-main()
+    # InteractiveGraph(graph,node_labels=True, arrows=True)
+    # plt.show()
