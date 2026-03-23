@@ -68,7 +68,7 @@ def main(d_percentage, d_minutes, type_data):
             # If all previous trains to that station have arrived, the train will departure
             can_depart = check_departure(active_trip=trip)
             if can_depart:
-                every_train_has_arrived = check_for_connections(active_trip=trip, active_trips=active_trips, stations_map=active_station_map)
+                every_train_has_arrived = check_for_connections(active_trip=trip, active_trips=active_trips, active_stations_map=active_station_map)
                 if every_train_has_arrived:
                     depart_trip(active_trip=trip,time=time_now, time_list=time_list)
                     check_delay(trip=trip,delay_list=delay_list, time_list=time_list, d_min=d_minutes)
@@ -80,24 +80,6 @@ def main(d_percentage, d_minutes, type_data):
 
     # Debugging prints 
     # print("Finished trips - " + str(len(final_trip_list)))
-    
-    # for i, trip in enumerate(final_trip_list):
-    #     print(trip["path"])
-    #     print(" - size: " + str(len(trip["path"])) + " ID: " + str(trip["id"]))
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
-    # # print("Active trips")
-
-    # for j,trip in enumerate(active_trips):
-    #     print(trip["path"])
-    #     print(" - size: " + str(len(trip["path"])))
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["arrival_times"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_arrival_time"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["expected_departure_time"]])
-    #     print([date_obj.strftime('%H-%M') for date_obj in trip["actual_departure_time"]])
-
 
     print("Time simulation ended at " + time_list[i-1].strftime("%d/%m/%y - %H:%M"))
     print("Total trips simulates that have ended:" + str(len(final_trip_list)))
@@ -219,7 +201,7 @@ def move_to_next_station(trip, time):
     trip["next_station_index"] += 1
     return True
 
-def check_for_connections(active_trip, active_trips, stations_map):
+def check_for_connections(active_trip, active_trips, active_stations_map):
     """
     Returns false if there is a pending trip for the current station
     Return true if all trips have arrived
@@ -233,7 +215,7 @@ def check_for_connections(active_trip, active_trips, stations_map):
     # Original time of arrival
     arrival_time = active_trip["arrival_times"][actual_station]
     # Verify if there are any trip, amongst the trips that are active, that a connection could be made originally
-    list_trips_for_station = stations_map[station_name]
+    list_trips_for_station = active_stations_map[station_name]
     for trip in list_trips_for_station:
         # Don't compare to itself
         if trip == active_trip["id"]:
@@ -307,7 +289,7 @@ def save_simulation():
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("delay_percentage", help="Percentage of trips that will have delay", type=int)
+    parser.add_argument("delay_percentage", help="Percentage of trips that will have delay", type=float)
     parser.add_argument("delay_minutes", help="How many minutes a single delayed trip should be delayed", type=int)
     parser.add_argument("type_data", help="If you want to use real data or mocked data (simplified)", type=str, choices=["real","mock"])
     args = parser.parse_args()
