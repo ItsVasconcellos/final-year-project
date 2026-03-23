@@ -98,10 +98,10 @@ def compare_routes(journey, routes):
     c2 =0
     for j in journey:
         if not used_routes.get(j["route"]):
-            print(j["route"])
+            # print(j["route"])
             used_routes[j["route"]] = 1
     for r in routes:
-        print("Rotas" + str(r))
+        # print("Rotas" + str(r))
         if not used_routes.get(r):
             counter+=1
             continue
@@ -158,15 +158,15 @@ def save_timetable(timetable,list_of_times):
     trip_table = pa.Table.from_pylist(timetable,schema)
     if not os.path.exists(os.path.join(os.getcwd(), '.output')):
         os.mkdir(".output")
-    if not os.path.exists(os.path.join(os.getcwd(), '.output/timetable2')):
-        os.mkdir(".output/timetable2", mode=0o777, dir_fd=None)
-    pq.write_table(trip_table,".output/timetable2/trips.parquet")
+    if not os.path.exists(os.path.join(os.getcwd(), '.output/timetable_tfl')):
+        os.mkdir(".output/timetable_tfl", mode=0o777, dir_fd=None)
+    pq.write_table(trip_table,".output/timetable_tfl/trips.parquet")
     time_schema = pa.schema([
         ('time', pa.timestamp('s'))
     ])
     # Save the list of times in a json file for later acceess in simulation
     time_table = pa.Table.from_arrays([list_of_times], schema=time_schema)
-    pq.write_table(time_table, ".output/timetable2/timelist.parquet")
+    pq.write_table(time_table, ".output/timetable_tfl/timelist.parquet")
 
 if __name__ == "__main__":
     list_routes = RouteService.main()
