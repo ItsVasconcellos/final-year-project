@@ -1,12 +1,9 @@
 import lines as l
 import pyarrow.parquet as pq
-import pyarrow.compute as pc
 import pyarrow as pa
 import networkx as nx
 import haversine as hs   
 from haversine import Unit
-from netgraph import InteractiveGraph # or just Graph for static
-import matplotlib.pyplot as plt
 
 def get_timetable():
     trip_parquet_file_path = ".output/timetable_tfl/trips.parquet"
@@ -73,7 +70,7 @@ def main():
 
     # Add station name to the graph
     for s in stations_used:
-        s_name = stations_used[str(s)]["name"]
+        s_name = stations_used[str(s)]["id"]
         graph.add_node(s_name)
 
     edges_list = []
@@ -82,13 +79,13 @@ def main():
             s_from = str(path[i])
             s_to = str(path[i+1])
             if s_from == s_to:
-                print(path)
-                print("self loop from " + str(s_from) + " to" + str(s_to))
+                # print(path)
+                # print("self loop from " + str(s_from) + " to" + str(s_to))
                 continue
             station_from = stations_used[s_from]
             station_to = stations_used[s_to]
             weight = get_distance(station_from,station_to)
-            edges_list.append([station_from["name"],station_to["name"],{"weight": weight}])
+            edges_list.append([station_from["id"],station_to["id"],{"weight": weight}])
             
     # Create edges
     graph.add_edges_from(edges_list)
