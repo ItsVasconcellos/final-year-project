@@ -16,7 +16,7 @@ def save_statistics(stats):
         os.mkdir(".output")
     if not os.path.exists(os.path.join(os.getcwd(), '.output/timetable_tfl')):
         os.mkdir(".output/timetable_tfl", mode=0o777, dir_fd=None)
-    pq.write_table(stats_table,".output/timetable_tfl/stations.parquet")
+    pq.write_table(stats_table,".output/timetable_tfl/stats.parquet")
 
 def get_top_x_items(d, size):
     item = OrderedDict(sorted(d.items(),key=lambda item: item[1],reverse=True))
