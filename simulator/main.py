@@ -1,8 +1,6 @@
-import network
-from pyarrow import TimestampScalar
 import pyarrow.parquet as pq
 import pyarrow.compute as pc
-from datetime import datetime,timedelta
+from datetime import timedelta
 import bisect 
 import os
 import random
@@ -80,8 +78,7 @@ def main(d_percentage, d_type, d_minutes, type_data):
                 if every_train_has_arrived:
                     depart_trip(active_trip=trip,time=time_now, time_list=time_list)
                     check_delay(trip=trip,delay_list=delay_list, time_list=time_list, d_min=d_minutes)
-        # print(i)
-        # print(time_list[i])
+                    remove_trip_from_station_map(trip, station_map=active_station_map)
         for ended_t in ended_trips_ids:
             active_trips.pop(ended_t)
         i+=1
@@ -93,7 +90,11 @@ def main(d_percentage, d_type, d_minutes, type_data):
     print("Total trips simulates that have ended:" + str(len(final_trip_list)))
     print("Number of remaining: " + str(len(active_trips)))
     print("Total delay generated artificially in network (M) - " + str(total_delay_generated))
+
+    # Main adittion
     ## Add the number of trips that have got delayed and the distribution of delay of trips/stations 
+    
+    
     print("Total delay propagated in network (M) - " + str(total_delay_propagated_in_network))
     # print("Total trips delayed in the network" + str(total_delay_propagated_in_network))
 
@@ -148,9 +149,16 @@ def add_trip_to_map_station(new_trips, station_map):
         for s in t["path"]:
             station_map[s].add(t["id"])
 
+def remove_trip_from_station_map(trip, station_map):
+    last = trip["next_station_index"] - 1
+    station = trip["path"][last]
+    if trip["id"] in station_map[station]:
+        station_map[station].remove(trip["id"])
+
 def remove_trip_from_active_map(trip,station_map):
-    for s in trip["path"]:
-        station_map[s].discard(trip["id"])
+    last = trip["next_station_index"] - 1
+    station = trip["path"][last]
+    station_map[station].discard(trip["id"])
 
 
 # def random_delay_stations(trips,percent):
@@ -286,7 +294,7 @@ def depart_trip(active_trip, time, time_list):
     # In case the trip departured later than expected, the expected times will be adjusted to match this.
     if time != active_trip["expected_departure_time"][actual_station]:
         next_station_name = active_trip["path"][next_station]
-        print("Trip with delay:" + str(active_trip["id"]) + " - Statiton: " + next_station_name)
+        # print("Trip with delay:" + str(active_trip["id"]) + " - Statiton: " + next_station_name)
         adjust_expected_time(active_trip, time, next_station, time_list)
 
 def check_delay(trip, delay_list, time_list, d_min):
@@ -313,7 +321,7 @@ def adjust_expected_time(active_trip, time, next_station, time_list):
     """
     delta = time
     diff_in_departures = int((time - active_trip["expected_departure_time"][next_station-1]).total_seconds() // 60) 
-    print("Minutes the trip got delayed: " + str(diff_in_departures))
+    # print("Minutes the trip got delayed: " + str(diff_in_departures))
     global total_delay_propagated_in_network
     total_delay_propagated_in_network += diff_in_departures
     for i in range(next_station,len(active_trip["path"])):
