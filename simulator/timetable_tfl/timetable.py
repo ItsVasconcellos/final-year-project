@@ -62,11 +62,15 @@ def extract_stations_and_intervals(req_timetable, st):
         stations = [departure_stop]
         interval_between_stations = []
         intervals = station["intervals"]
-        for i in intervals:
-            interval_between_stations.append(i["timeToArrival"])
-            stations.append(i["stopId"])
-            if not st.get(i["stopId"]):
-                x = str(i["stopId"])
+        for i, interval in enumerate(intervals):
+            if i != 0:
+                actual_interval = intervals[i]["timeToArrival"] - intervals[i-1]["timeToArrival"]
+            else: 
+                actual_interval = intervals[i]["timeToArrival"]
+            interval_between_stations.append(actual_interval)
+            stations.append(interval["stopId"])
+            if not st.get(interval["stopId"]):
+                x = str(interval["stopId"])
                 st[x] = x
         routes[id]["stations"] = stations
         routes[id]["time_diff"] = interval_between_stations
@@ -143,6 +147,9 @@ def create_time_table(trip_list, final_timetable,trip):
         timetable["arrival_times"] = item["arrival_time"]
         timetable["departure_times"] = item["arrival_time"]
         timetable["first_departure"] = item["first_departure"]
+        time_diff = timetable["arrival_times"][-1] - timetable["first_departure"]
+        if time_diff.total_seconds() > 5400:
+            print(trip)  
         final_timetable.append(timetable)
         trip +=1
     return trip
