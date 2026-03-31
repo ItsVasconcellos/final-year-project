@@ -10,9 +10,8 @@ trip_parquet_file_path = ".output/timetable_tfl/trips.parquet"
 time_list_file_path = ".output/timetable_tfl/timelist.parquet"
 stats_file_path = ".output/timetable_tfl/stats.parquet"
 
-total_delay_generated = 0
-total_delay_propagated_in_network = 0
 
+global trips_delayed, stations_delayed, total_delay_generated, total_delay_propagated_in_network
 # Update the scenario of delay
 # One minute after another
 # Changing to just subway lines
@@ -20,7 +19,7 @@ total_delay_propagated_in_network = 0
 # Average delay on stations or trips
 # 
 
-def main(d_percentage, d_type, d_minutes, type_data):
+def main(d_percentage, d_type, d_minutes):
     """
     Docstring for main
     
@@ -28,17 +27,24 @@ def main(d_percentage, d_type, d_minutes, type_data):
     :param d_minutes: Description
     :param type_data: Defines if the simulation will use a small set of data (mock) or the actual timetable (real).
     """
+    global total_delay_generated, total_delay_propagated_in_network
+    total_delay_generated = 0
+    total_delay_propagated_in_network = 0
     # Adjustment for the delay, since randrange goes from [0,d_min[
     d_minutes +=1
-    trips, time_list = get_data(type_data)
+    trips, time_list = get_data()
     # Process trips to have a station map
     active_station_map = defaultdict(set)
     # Define which stations will be delayed
     stations_with_delay = get_stats(d_type)
+    # Full station_map
     station_map = get_stations_map(trips.to_pylist())
     delay_list = get_delayed_stations(stations_with_delay, station_map, d_percentage=d_percentage)
 
-    # Full station_map
+    global trips_delayed, stations_delayed
+    trips_delayed = set_trips_delayed(trips.to_pylist())
+    stations_delayed = set_stations_delayed_dict(trips.to_pylist())
+
     # delay_list = random_delay_stations(trips, percent=d_percentage)
 
     # List of active_trips (live trips) and final trips (trips that have ended)
@@ -83,6 +89,9 @@ def main(d_percentage, d_type, d_minutes, type_data):
             active_trips.pop(ended_t)
         i+=1
 
+    status_trips_delayed = get_status_trips(trips_delayed)
+    status_stations_delayed = get_status_trips(stations_delayed)
+    total_trips_delayed = get_total_trips_delayed(status_trips_delayed)
     # Debugging prints 
     # print("Finished trips - " + str(len(final_trip_list)))
 
@@ -92,30 +101,40 @@ def main(d_percentage, d_type, d_minutes, type_data):
     print("Total delay generated artificially in network (M) - " + str(total_delay_generated))
 
     # Main adittion
+    
     ## Add the number of trips that have got delayed and the distribution of delay of trips/stations 
     
-    
     print("Total delay propagated in network (M) - " + str(total_delay_propagated_in_network))
+    print("Total trips delayed " + str(total_trips_delayed))
     # print("Total trips delayed in the network" + str(total_delay_propagated_in_network))
 
-def get_data(type_data):
-    if type_data == "real":
-        # Load trips and time_list (just first index because its a one-column file) from parquet files and convert from py_arrow to a python list
-        trips = pq.read_table(trip_parquet_file_path)
-        time_list = pq.read_table(time_list_file_path)[0]
-        time_list = [x.as_py() for x in time_list]
-        return trips, time_list    
-    # Alternative to get the time_list if using mock data
+    """
+    Return the following stats: 
+    - Amount of delay generated due to the randomness algo (Minutes)
+    - Amount of delay propagated in the network (Minutes)
+    - Amount of trips delayed
+    - Distribution of delay generated in trips (Dict -> where the key is the amount of delay and the value is the times it happenned)
+    - Distribution of delay generated in stations (Dict -> where the key is the amount of delay and the value is the times it happenned)
+    """
+    return total_delay_generated, total_delay_propagated_in_network, total_trips_delayed, status_trips_delayed, status_stations_delayed 
+
+def get_data():
+    # Load trips and time_list (just first index because its a one-column file) from parquet files and convert from py_arrow to a python list
+    trips = pq.read_table(trip_parquet_file_path)
+    time_list = pq.read_table(time_list_file_path)[0]
+    time_list = [x.as_py() for x in time_list]
+    return trips, time_list    
+    # # Alternative to get the time_list if using mock data
     
-    from mockdata import trips
-    time_list = []
-    for trip in trips.to_pylist():  
-        for o in range(0,len(trip["path"])):
-            if trip["arrival_times"][o] not in time_list:
-                time_list.append(trip["arrival_times"][o])
-    time_list.sort()
-    # trips["has_delay"] = False
-    return trips, time_list
+    # from mockdata import trips
+    # time_list = []
+    # for trip in trips.to_pylist():  
+    #     for o in range(0,len(trip["path"])):
+    #         if trip["arrival_times"][o] not in time_list:
+    #             time_list.append(trip["arrival_times"][o])
+    # time_list.sort()
+    # # trips["has_delay"] = False
+    # return trips, time_list
 
 def get_stats(type):
     stats = pq.read_table(stats_file_path)
@@ -144,6 +163,19 @@ def get_delayed_stations(stations_with_delay, station_map, d_percentage):
     print(final_delayed_station)
     return final_delayed_station
 
+def set_trips_delayed(trips):
+    trips_delayed = defaultdict(int)
+    for t in trips:
+        trips_delayed[t["id"]] = 0
+    return trips_delayed
+
+def set_stations_delayed_dict(trips):
+    stations_delayed = defaultdict(int)
+    for t in trips:
+        for station in t["path"]:
+            stations_delayed[station] = 0
+    return stations_delayed
+
 def add_trip_to_map_station(new_trips, station_map):
     for t in new_trips:
         for s in t["path"]:
@@ -160,34 +192,6 @@ def remove_trip_from_active_map(trip,station_map):
     station = trip["path"][last]
     station_map[station].discard(trip["id"])
 
-
-# def random_delay_stations(trips,percent):
-#     total_trips = pc.sum(pc.list_value_length(trips["path"])).as_py()
-#     total_stations_with_delay = round((total_trips*percent)/100)
-#     if total_stations_with_delay == 0:
-#         return {}
-    
-#     delayed_stations = sorted(random.sample(range(total_trips), total_stations_with_delay))
-#     final_delayed_station = defaultdict(list)
-#     # indexes
-#     start_path = 0
-#     end_path = 0
-#     i = 0
-#     value = delayed_stations[i]
-#     for trip in trips.to_pylist():
-#         trip_id = trip["id"]
-#         end_path += len(trip["path"])
-#         while len(delayed_stations) > i:
-#             value = delayed_stations[i]
-#             if end_path <= value:
-#                 break
-#             if value >= start_path:
-#                 index = value - start_path 
-#                 final_delayed_station[trip_id].append(index)
-#             i +=1
-#         start_path = end_path 
-#     return final_delayed_station
-
 def verify_new_trips(trips,time):
     # Create a filter verifying if the first_departure matches with the time active and return the trips found in parquet file
     mask = pc.equal(trips["first_departure"],time)
@@ -202,10 +206,8 @@ def add_new_trips(new_trips, active_trips, time, time_list, delay_list, d_min):
         trip["actual_departure_time"] = []
         trip["station_to_idx"] = {name: i for i, name in enumerate(trip["path"])}
         if trip["path"][0] == delay_list[trip["id"]]: 
-            global total_delay_generated, total_delay_propagated_in_network
             delay = random.randrange(1,d_min)
-            total_delay_generated += delay
-            total_delay_propagated_in_network += delay
+            increment_delay(delay, trip)
             for i in range(0,len(trip["path"])):
                 new_time_expected =  trip["expected_arrival_time"][i] + timedelta(minutes=delay)
                 trip["expected_arrival_time"][i] = new_time_expected
@@ -301,11 +303,9 @@ def check_delay(trip, delay_list, time_list, d_min):
     next_station = trip["next_station_index"]
     station_naptan = trip["path"][next_station]
     if station_naptan == delay_list[trip["id"]]: 
-        global total_delay_generated, total_delay_propagated_in_network
         delay = random.randrange(1,d_min)
-        print(str(delay) + " minutes of delay generated in trip" + str(trip["id"]))
-        total_delay_generated += delay
-        total_delay_propagated_in_network += delay
+        print(str(delay) + " minutes of delay generated in trip " + str(trip["id"]))
+        increment_delay(delay,trip)
         for i in range(next_station,len(trip["path"])):
             new_time_expected = trip["expected_arrival_time"][i] + timedelta(minutes=delay)
             trip["expected_arrival_time"][i] = new_time_expected
@@ -322,15 +322,44 @@ def adjust_expected_time(active_trip, time, next_station, time_list):
     delta = time
     diff_in_departures = int((time - active_trip["expected_departure_time"][next_station-1]).total_seconds() // 60) 
     # print("Minutes the trip got delayed: " + str(diff_in_departures))
-    global total_delay_propagated_in_network
+    global total_delay_propagated_in_network, trips_delayed
+    trips_delayed[active_trip["id"]] += diff_in_departures
     total_delay_propagated_in_network += diff_in_departures
+
     for i in range(next_station,len(active_trip["path"])):
+            station_id = active_trip["path"][i]
+            stations_delayed[station_id] += diff_in_departures
             delta += active_trip["arrival_times"][i] - active_trip["arrival_times"][i-1] 
             new_time_expected = delta
             active_trip["expected_arrival_time"][i] = new_time_expected
             active_trip["expected_departure_time"][i] = new_time_expected
             if new_time_expected not in time_list:
                 bisect.insort(time_list, new_time_expected)
+
+def increment_delay(delay, trip): 
+    global total_delay_generated, total_delay_propagated_in_network, trips_delayed, stations_delayed
+    total_delay_generated += delay
+    print("Total delay generated - " + str(total_delay_generated))
+    total_delay_propagated_in_network += delay
+    trips_delayed[trip["id"]] += delay
+    station_idx = trip["next_station_index"]
+    station_id = trip["path"][station_idx]
+    stations_delayed[station_id] += delay
+
+def get_status_trips(items_delayed):
+    status_delay = defaultdict(int)
+    for value in items_delayed.values():
+        status_delay[value] += 1
+    status_delay = dict(sorted(status_delay.items(), key=lambda item: item[0])) 
+    return status_delay
+
+def get_total_trips_delayed(trips_delayed):
+    total = 0
+    for t in trips_delayed.items():
+        if t[0] == 0:
+            continue
+        total += t[1]
+    return total
 
 def save_simulation():
     if not os.path.exists(os.path.join(os.getcwd(), '.output')):
@@ -342,9 +371,8 @@ if __name__ == "__main__":
     parser.add_argument("delay_percentage", help="Percentage of trips that will have delay", choices=[1, 2, 4, 6, 8, 10], type=int)
     parser.add_argument("delay_stats_type", help="Percentage of trips that will have delay", choices=["degree", "betweeness", "closeness","k-core","h-index"])
     parser.add_argument("delay_minutes", help="How many minutes a single delayed trip should be delayed", type=int)
-    parser.add_argument("type_data", help="If you want to use real data or mocked data (simplified)", type=str, choices=["real","mock"])
     args = parser.parse_args()
     if args.delay_minutes <=0:
         raise argparse.ArgumentError("The trip cannot be delayed by negative minutes.")
 
-    main(args.delay_percentage,args.delay_stats_type, args.delay_minutes, args.type_data)
+    main(args.delay_percentage,args.delay_stats_type, args.delay_minutes)
