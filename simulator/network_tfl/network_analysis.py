@@ -1,4 +1,4 @@
-import graph as g
+import simulator.network_tfl.graph as g
 import pyarrow as pa
 from pyarrow import Table
 import pyarrow.parquet as pq

@@ -1,5 +1,5 @@
 import csv
-import network as ntw
+import simulator.network_uk_railway.network as ntw
 
 def extract_unique_routes():
     unique_routes = {}

@@ -1,7 +1,7 @@
 import hypernetx as hnx
 import hypernetx.classes.hypergraph as hch
-import network as nt
-import routes as rt
+import simulator.network_uk_railway.network as nt
+import simulator.network_uk_railway.routes as rt
 import plotly.graph_objects as go
 
 def main():

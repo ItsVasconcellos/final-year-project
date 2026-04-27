@@ -70,7 +70,7 @@ def main():
 
     # Add station name to the graph
     for s in stations_used:
-        s_name = stations_used[str(s)]["id"]
+        s_name = stations_used[str(s)]["name"]
         graph.add_node(s_name)
 
     edges_list = []
@@ -85,7 +85,7 @@ def main():
             station_from = stations_used[s_from]
             station_to = stations_used[s_to]
             weight = get_distance(station_from,station_to)
-            edges_list.append([station_from["id"],station_to["id"],{"weight": weight}])
+            edges_list.append([station_from["name"],station_to["name"],{"weight": weight}])
             
     # Create edges
     graph.add_edges_from(edges_list)
