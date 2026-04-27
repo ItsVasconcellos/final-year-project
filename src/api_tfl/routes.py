@@ -1,5 +1,5 @@
 import requests
-import api_tfl.lines as l
+import lines as l
 import logging as log
 
 def get_all_routes(line: str):

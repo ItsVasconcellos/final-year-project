@@ -1,7 +1,7 @@
 import bisect 
 import requests
-import api_tfl.lines as l
-import api_tfl.routes as RouteService
+import lines as l
+import routes as RouteService
 import logging as log
 from datetime import datetime, timedelta
 import pyarrow as pa
