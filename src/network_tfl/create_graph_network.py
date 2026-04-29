@@ -1,4 +1,4 @@
-import network_tfl.graph as graph
+import graph as graph
 import networkx as nx
 import matplotlib.pyplot as plt
 

@@ -1,4 +1,3 @@
-import lines as l
 import pyarrow.parquet as pq
 import pyarrow as pa
 import networkx as nx
@@ -79,7 +78,6 @@ def main():
             s_from = str(path[i])
             s_to = str(path[i+1])
             if s_from == s_to:
-                # print(path)
                 # print("self loop from " + str(s_from) + " to" + str(s_to))
                 continue
             station_from = stations_used[s_from]
@@ -89,7 +87,5 @@ def main():
             
     # Create edges
     graph.add_edges_from(edges_list)
-    return graph
     # return graph
-    # InteractiveGraph(graph,node_labels=True, arrows=True)
-    # plt.show()
+    return graph

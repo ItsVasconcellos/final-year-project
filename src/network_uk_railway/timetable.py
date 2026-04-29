@@ -1,5 +1,5 @@
-import network_uk_railway.network as network
-import network_uk_railway.routes as routes
+import network as network
+import routes as routes
 import os
 from datetime import datetime, timedelta, date
 from networkx import DiGraph
